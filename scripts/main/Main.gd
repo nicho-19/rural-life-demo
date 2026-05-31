@@ -38,6 +38,8 @@ var shop_money_label: Label
 var shop_message_label: Label
 var stats_panel: PanelContainer
 var stats_value_label: Label
+var help_panel: PanelContainer
+var help_text_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -106,6 +108,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_load_game()
 		KEY_I:
 			_toggle_stats()
+		KEY_H:
+			_toggle_help()
 		KEY_B:
 			_toggle_shop()
 		KEY_1:
@@ -266,6 +270,14 @@ func _toggle_stats() -> void:
 		_update_ui("图鉴关闭。")
 
 
+func _toggle_help() -> void:
+	help_panel.visible = not help_panel.visible
+	if help_panel.visible:
+		_update_ui("帮助打开了。这里是自由经营提示，不是任务要求。")
+	else:
+		_update_ui("帮助关闭。")
+
+
 func _build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -286,7 +298,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -305,6 +317,7 @@ func _build_ui() -> void:
 
 	_build_shop_panel(canvas)
 	_build_stats_panel(canvas)
+	_build_help_panel(canvas)
 	_build_inventory_bar(canvas)
 
 
@@ -373,6 +386,40 @@ func _build_stats_panel(canvas: CanvasLayer) -> void:
 	stats_value_label.name = "StatsValue"
 	stats_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(stats_value_label)
+
+
+func _build_help_panel(canvas: CanvasLayer) -> void:
+	help_panel = PanelContainer.new()
+	help_panel.name = "HelpPanel"
+	help_panel.position = Vector2(320, 150)
+	help_panel.custom_minimum_size = Vector2(640, 330)
+	help_panel.visible = true
+	canvas.add_child(help_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	help_panel.add_child(margin)
+
+	help_text_label = Label.new()
+	help_text_label.name = "HelpText"
+	help_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	help_text_label.text = "\n".join([
+		"农村生活 Demo",
+		"",
+		"这是一个自由经营的小农场：种什么、卖不卖、接不接订单都由你决定。",
+		"建议玩法：开垦土地 -> 选种子 -> 种植 -> 浇水或等雨天 -> 收获 -> 出售或交可选订单。",
+		"",
+		"常用按键：",
+		"WASD/方向键移动，E/空格交互，鼠标点击农田操作。",
+		"1-4 选择种子，B 打开商店，M 出售作物，O 交付可选订单。",
+		"I 查看图鉴，F5 保存，F9 读档，H 打开/关闭这个帮助。",
+		"",
+		"订单、图鉴和天气都只是让日子更有味道，不会惩罚你慢慢玩。"
+	])
+	margin.add_child(help_text_label)
 
 
 func _build_inventory_bar(canvas: CanvasLayer) -> void:
@@ -515,7 +562,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
