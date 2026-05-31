@@ -6,6 +6,7 @@ const DataManagerScript := preload("res://scripts/core/DataManager.gd")
 const TimeManagerScript := preload("res://scripts/core/TimeManager.gd")
 const ShopManagerScript := preload("res://scripts/shop/ShopManager.gd")
 const OrderManagerScript := preload("res://scripts/orders/OrderManager.gd")
+const SaveManagerScript := preload("res://scripts/save/SaveManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -18,6 +19,7 @@ var farm_manager
 var inventory
 var shop_manager
 var order_manager
+var save_manager
 var selected_seed_item_id := "turnip_seed"
 var status_label: Label
 var hint_label: Label
@@ -52,8 +54,15 @@ func _ready() -> void:
 	order_manager.setup(data_manager.items)
 	order_manager.start_day(time_manager.day)
 
+	save_manager = SaveManagerScript.new()
+	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
+	if _should_auto_load():
+		var load_result := _load_game_state()
+		if bool(load_result.get("success", false)):
+			start_message = "已自动读取上次存档。"
+
 	_build_ui()
-	_update_ui("早上好。靠近农田按 E，或直接点击农田开始干活。")
+	_update_ui(start_message)
 	refresh_inventory_ui()
 	_update_target_hint()
 
@@ -79,6 +88,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_sell_all_crops()
 		KEY_O:
 			_deliver_order()
+		KEY_F5:
+			_save_game()
+		KEY_F9:
+			_load_game()
 		KEY_B:
 			_toggle_shop()
 		KEY_1:
@@ -135,6 +148,45 @@ func _deliver_order() -> void:
 	_update_target_hint()
 
 
+func _save_game() -> void:
+	var result: Dictionary = save_manager.save_game(
+		SaveManagerScript.SAVE_PATH,
+		inventory,
+		farm_manager,
+		time_manager,
+		order_manager,
+		selected_seed_item_id
+	)
+	_update_ui(String(result.get("message", "存档失败。")))
+	refresh_inventory_ui()
+	_update_target_hint()
+
+
+func _load_game() -> void:
+	var result: Dictionary = _load_game_state()
+	_update_ui(String(result.get("message", "读档失败。")))
+	refresh_inventory_ui()
+	_update_target_hint()
+
+
+func _load_game_state() -> Dictionary:
+	var loaded: Dictionary = save_manager.load_game(SaveManagerScript.SAVE_PATH)
+	if not bool(loaded.get("success", false)):
+		return loaded
+
+	var applied: Dictionary = save_manager.apply_save_data(
+		loaded.get("data", {}),
+		inventory,
+		farm_manager,
+		time_manager,
+		order_manager
+	)
+	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
+	if SEED_ITEMS.has(saved_seed):
+		selected_seed_item_id = saved_seed
+	return applied
+
+
 func _buy_seed(seed_item_id: String) -> void:
 	var result: Dictionary = shop_manager.buy_item(inventory, seed_item_id, 1)
 	if bool(result.get("success", false)):
@@ -184,7 +236,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O交付可选订单"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -374,7 +426,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O交付可选订单"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -415,3 +467,10 @@ func _crop_swatch(crop_item_id: String) -> Color:
 		"corn":
 			return Color("#f1cf4a")
 	return Color("#d6513b")
+
+
+func _should_auto_load() -> bool:
+	for arg in OS.get_cmdline_args():
+		if String(arg).contains("res://tests/"):
+			return false
+	return true

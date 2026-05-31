@@ -195,3 +195,45 @@ func _crop_color(crop_id: String) -> Color:
 		"corn":
 			return Color("#f1cf4a")
 	return Color("#d6513b")
+
+
+func to_save_data() -> Dictionary:
+	var saved_tiles: Array[Dictionary] = []
+	for cell in tiles.keys():
+		var tile: Dictionary = tiles[cell]
+		saved_tiles.append({
+			"x": cell.x,
+			"y": cell.y,
+			"state": int(tile.get("state", TileState.EMPTY)),
+			"crop_id": String(tile.get("crop_id", "")),
+			"growth": int(tile.get("growth", 0)),
+		})
+
+	return {
+		"tiles": saved_tiles,
+	}
+
+
+func load_save_data(data: Dictionary) -> void:
+	for cell in tiles.keys():
+		tiles[cell] = {
+			"state": TileState.EMPTY,
+			"crop_id": "",
+			"growth": 0,
+		}
+
+	var saved_tiles = data.get("tiles", [])
+	if not saved_tiles is Array:
+		return
+
+	for saved_tile in saved_tiles:
+		if not saved_tile is Dictionary:
+			continue
+		var cell := Vector2i(int(saved_tile.get("x", -1)), int(saved_tile.get("y", -1)))
+		if not tiles.has(cell):
+			continue
+		tiles[cell] = {
+			"state": int(saved_tile.get("state", TileState.EMPTY)),
+			"crop_id": String(saved_tile.get("crop_id", "")),
+			"growth": int(saved_tile.get("growth", 0)),
+		}

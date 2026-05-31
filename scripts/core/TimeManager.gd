@@ -27,3 +27,18 @@ func _add_minute() -> void:
 		hour += 1
 	if hour >= 24:
 		next_day()
+
+
+func to_save_data() -> Dictionary:
+	return {
+		"day": day,
+		"hour": hour,
+		"minute": minute,
+	}
+
+
+func load_save_data(data: Dictionary) -> void:
+	day = max(1, int(data.get("day", 1)))
+	hour = clampi(int(data.get("hour", 6)), 0, 23)
+	minute = clampi(int(data.get("minute", 0)), 0, 59)
+	_minute_accumulator = 0.0

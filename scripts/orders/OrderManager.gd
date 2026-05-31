@@ -100,3 +100,15 @@ func _reward_for(requirements: Dictionary) -> int:
 func _item_name(item_id: String) -> String:
 	var item: Dictionary = items.get(item_id, {})
 	return String(item.get("name", item_id))
+
+
+func to_save_data() -> Dictionary:
+	return {
+		"current_order": current_order.duplicate(true),
+	}
+
+
+func load_save_data(data: Dictionary) -> void:
+	var saved_order = data.get("current_order", {})
+	if saved_order is Dictionary:
+		current_order = saved_order.duplicate(true)
