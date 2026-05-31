@@ -1,0 +1,24 @@
+{
+  "turnip_seed": {
+    "name": "萝卜种子",
+    "type": "seed",
+    "price": 20,
+    "stack": 99
+  },
+  "turnip": {
+    "name": "萝卜",
+    "type": "crop",
+    "sell_price": 60,
+    "stack": 99
+  },
+  "hoe": {
+    "name": "锄头",
+    "type": "tool",
+    "stack": 1
+  },
+  "watering_can": {
+    "name": "水壶",
+    "type": "tool",
+    "stack": 1
+  }
+}

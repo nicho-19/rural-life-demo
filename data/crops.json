@@ -1,0 +1,10 @@
+{
+  "turnip": {
+    "name": "萝卜",
+    "seed_item": "turnip_seed",
+    "grow_days": 3,
+    "season": ["spring"],
+    "sell_price": 60,
+    "stages": 3
+  }
+}

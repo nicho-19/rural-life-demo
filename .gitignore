@@ -1,0 +1,11 @@
+# Godot local/editor cache
+.godot/
+.import/
+export.cfg
+export_presets.cfg
+*.translation
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
