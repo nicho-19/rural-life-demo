@@ -5,6 +5,7 @@ const InventoryScript := preload("res://scripts/inventory/Inventory.gd")
 const DataManagerScript := preload("res://scripts/core/DataManager.gd")
 const TimeManagerScript := preload("res://scripts/core/TimeManager.gd")
 const ShopManagerScript := preload("res://scripts/shop/ShopManager.gd")
+const OrderManagerScript := preload("res://scripts/orders/OrderManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -16,9 +17,11 @@ var time_manager
 var farm_manager
 var inventory
 var shop_manager
+var order_manager
 var selected_seed_item_id := "turnip_seed"
 var status_label: Label
 var hint_label: Label
+var order_label: Label
 var money_value_label: Label
 var seed_value_labels: Dictionary = {}
 var crop_value_labels: Dictionary = {}
@@ -45,6 +48,10 @@ func _ready() -> void:
 	shop_manager = ShopManagerScript.new()
 	shop_manager.setup(data_manager.items)
 
+	order_manager = OrderManagerScript.new()
+	order_manager.setup(data_manager.items)
+	order_manager.start_day(time_manager.day)
+
 	_build_ui()
 	_update_ui("早上好。靠近农田按 E，或直接点击农田开始干活。")
 	refresh_inventory_ui()
@@ -70,6 +77,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_next_day()
 		KEY_M:
 			_sell_all_crops()
+		KEY_O:
+			_deliver_order()
 		KEY_B:
 			_toggle_shop()
 		KEY_1:
@@ -106,7 +115,8 @@ func _interact_with_farm_at(world_position: Vector2) -> void:
 func _next_day() -> void:
 	time_manager.next_day()
 	farm_manager.advance_day()
-	_update_ui("睡了一觉。第 %d 天开始，作物结算完成。" % time_manager.day)
+	order_manager.start_day(time_manager.day)
+	_update_ui("睡了一觉。第 %d 天开始，新的可选订单来了；不做也没关系。" % time_manager.day)
 	refresh_inventory_ui()
 	_update_target_hint()
 
@@ -114,6 +124,13 @@ func _next_day() -> void:
 func _sell_all_crops() -> void:
 	var result: Dictionary = shop_manager.sell_all_crops(inventory, CROP_ITEMS)
 	_update_ui(String(result.get("message", "没有可以出售的作物。")))
+	refresh_inventory_ui()
+	_update_target_hint()
+
+
+func _deliver_order() -> void:
+	var result: Dictionary = order_manager.deliver_order(inventory)
+	_update_ui(String(result.get("message", "订单交付失败。")))
 	refresh_inventory_ui()
 	_update_target_hint()
 
@@ -153,7 +170,7 @@ func _build_ui() -> void:
 
 	var panel := PanelContainer.new()
 	panel.position = Vector2(18, 18)
-	panel.custom_minimum_size = Vector2(530, 126)
+	panel.custom_minimum_size = Vector2(560, 158)
 	canvas.add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -167,8 +184,13 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O交付可选订单"
 	box.add_child(hint_label)
+
+	order_label = Label.new()
+	order_label.name = "OrderValue"
+	order_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(order_label)
 
 	status_label = Label.new()
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -312,6 +334,7 @@ func _update_ui(message: String) -> void:
 	]
 	if shop_message_label != null:
 		shop_message_label.text = message
+	_update_order_ui()
 
 
 func refresh_inventory_ui() -> void:
@@ -331,6 +354,7 @@ func refresh_inventory_ui() -> void:
 			crop_value_labels[crop_item_id].text = str(inventory.count(crop_item_id))
 
 	_update_shop_ui()
+	_update_order_ui()
 
 
 func _update_shop_ui() -> void:
@@ -350,11 +374,17 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O交付可选订单"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
 		hint_label.text += "\n当前农田: 面向或点击农田格查看操作。"
+
+
+func _update_order_ui() -> void:
+	if order_label == null or order_manager == null:
+		return
+	order_label.text = order_manager.describe_order(inventory)
 
 
 func _item_name(item_id: String) -> String:
