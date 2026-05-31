@@ -4,6 +4,10 @@ const FarmManagerScript := preload("res://scripts/farm/FarmManager.gd")
 const InventoryScript := preload("res://scripts/inventory/Inventory.gd")
 const DataManagerScript := preload("res://scripts/core/DataManager.gd")
 const TimeManagerScript := preload("res://scripts/core/TimeManager.gd")
+const ShopManagerScript := preload("res://scripts/shop/ShopManager.gd")
+
+const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
+const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
 
 @onready var player: CharacterBody2D = $Player
 
@@ -11,11 +15,17 @@ var data_manager
 var time_manager
 var farm_manager
 var inventory
+var shop_manager
+var selected_seed_item_id := "turnip_seed"
 var status_label: Label
 var hint_label: Label
 var money_value_label: Label
-var seed_value_label: Label
-var turnip_value_label: Label
+var seed_value_labels: Dictionary = {}
+var crop_value_labels: Dictionary = {}
+var seed_slot_buttons: Dictionary = {}
+var shop_panel: PanelContainer
+var shop_money_label: Label
+var shop_message_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -32,8 +42,11 @@ func _ready() -> void:
 	inventory = InventoryScript.new()
 	inventory.setup_starter_items()
 
+	shop_manager = ShopManagerScript.new()
+	shop_manager.setup(data_manager.items)
+
 	_build_ui()
-	_update_ui("早上好。靠近农田按 E 或空格开始干活。")
+	_update_ui("早上好。靠近农田按 E，或直接点击农田开始干活。")
 	refresh_inventory_ui()
 	_update_target_hint()
 
@@ -52,11 +65,26 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 	match event.physical_keycode:
 		KEY_E, KEY_SPACE:
-			_interact_with_farm()
+			_interact_with_farm_at(player.facing_position())
 		KEY_N:
 			_next_day()
 		KEY_M:
-			_sell_turnips()
+			_sell_all_crops()
+		KEY_B:
+			_toggle_shop()
+		KEY_1:
+			_select_seed(SEED_ITEMS[0])
+		KEY_2:
+			_select_seed(SEED_ITEMS[1])
+		KEY_3:
+			_select_seed(SEED_ITEMS[2])
+		KEY_4:
+			_select_seed(SEED_ITEMS[3])
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_interact_with_farm_at(get_global_mouse_position())
 
 
 func _draw() -> void:
@@ -68,9 +96,8 @@ func _draw() -> void:
 	farm_manager.draw_farm(self, highlighted_cell)
 
 
-func _interact_with_farm() -> void:
-	var target_position: Vector2 = player.facing_position()
-	var result: String = farm_manager.interact_at(target_position, inventory)
+func _interact_with_farm_at(world_position: Vector2) -> void:
+	var result: String = farm_manager.interact_at(world_position, inventory, selected_seed_item_id)
 	_update_ui(result)
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -84,18 +111,40 @@ func _next_day() -> void:
 	_update_target_hint()
 
 
-func _sell_turnips() -> void:
-	var amount: int = inventory.count("turnip")
-	if amount <= 0:
-		_update_ui("背包里没有萝卜可以卖。")
-		return
-
-	var price := int(data_manager.items["turnip"].get("sell_price", 0))
-	inventory.remove_item("turnip", amount)
-	inventory.money += amount * price
-	_update_ui("卖出 %d 个萝卜，收入 %d 金。" % [amount, amount * price])
+func _sell_all_crops() -> void:
+	var result: Dictionary = shop_manager.sell_all_crops(inventory, CROP_ITEMS)
+	_update_ui(String(result.get("message", "没有可以出售的作物。")))
 	refresh_inventory_ui()
 	_update_target_hint()
+
+
+func _buy_seed(seed_item_id: String) -> void:
+	var result: Dictionary = shop_manager.buy_item(inventory, seed_item_id, 1)
+	if bool(result.get("success", false)):
+		_select_seed(seed_item_id, false)
+	_update_ui(String(result.get("message", "购买失败。")))
+	refresh_inventory_ui()
+	_update_shop_ui()
+	_update_target_hint()
+
+
+func _select_seed(seed_item_id: String, show_message: bool = true) -> void:
+	if not SEED_ITEMS.has(seed_item_id):
+		return
+	selected_seed_item_id = seed_item_id
+	if show_message:
+		_update_ui("当前选择：%s。" % _item_name(seed_item_id))
+	refresh_inventory_ui()
+	_update_target_hint()
+
+
+func _toggle_shop() -> void:
+	shop_panel.visible = not shop_panel.visible
+	_update_shop_ui()
+	if shop_panel.visible:
+		_update_ui("商店打开了。点击按钮购买种子，按 B 关闭。")
+	else:
+		_update_ui("商店关闭。")
 
 
 func _build_ui() -> void:
@@ -104,7 +153,7 @@ func _build_ui() -> void:
 
 	var panel := PanelContainer.new()
 	panel.position = Vector2(18, 18)
-	panel.custom_minimum_size = Vector2(430, 122)
+	panel.custom_minimum_size = Vector2(530, 126)
 	canvas.add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -118,21 +167,60 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | N 下一天 | M 卖萝卜"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售"
 	box.add_child(hint_label)
 
 	status_label = Label.new()
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(status_label)
 
+	_build_shop_panel(canvas)
 	_build_inventory_bar(canvas)
+
+
+func _build_shop_panel(canvas: CanvasLayer) -> void:
+	shop_panel = PanelContainer.new()
+	shop_panel.name = "ShopPanel"
+	shop_panel.position = Vector2(570, 18)
+	shop_panel.custom_minimum_size = Vector2(360, 210)
+	shop_panel.visible = false
+	canvas.add_child(shop_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	shop_panel.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "种子商店"
+	box.add_child(title)
+
+	shop_money_label = Label.new()
+	box.add_child(shop_money_label)
+
+	for seed_item_id in SEED_ITEMS:
+		var button := Button.new()
+		button.name = "%sBuyButton" % seed_item_id.to_pascal_case()
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(_buy_seed.bind(seed_item_id))
+		box.add_child(button)
+
+	shop_message_label = Label.new()
+	shop_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(shop_message_label)
 
 
 func _build_inventory_bar(canvas: CanvasLayer) -> void:
 	var bar := PanelContainer.new()
 	bar.name = "InventoryBar"
-	bar.position = Vector2(18, 610)
-	bar.custom_minimum_size = Vector2(500, 82)
+	bar.position = Vector2(18, 594)
+	bar.custom_minimum_size = Vector2(1244, 108)
 	canvas.add_child(bar)
 
 	var margin := MarginContainer.new()
@@ -143,18 +231,43 @@ func _build_inventory_bar(canvas: CanvasLayer) -> void:
 	bar.add_child(margin)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6)
 	margin.add_child(row)
 
-	money_value_label = _add_inventory_slot(row, "MoneySlot", "Gold", "MoneyValue", Color("#e3b340"))
-	seed_value_label = _add_inventory_slot(row, "SeedSlot", "Seeds", "SeedValue", Color("#6da34d"))
-	turnip_value_label = _add_inventory_slot(row, "TurnipSlot", "Turnips", "TurnipValue", Color("#d6513b"))
+	money_value_label = _add_inventory_slot(row, "MoneySlot", "金币", "MoneyValue", Color("#e3b340"))
+
+	for seed_item_id in SEED_ITEMS:
+		var value_name := _seed_value_name(seed_item_id)
+		var label := _add_inventory_slot(row, "%sSlot" % seed_item_id.to_pascal_case(), _item_name(seed_item_id), value_name, Color("#6da34d"), true, seed_item_id)
+		seed_value_labels[seed_item_id] = label
+
+	for crop_item_id in CROP_ITEMS:
+		var value_name := _crop_value_name(crop_item_id)
+		var label := _add_inventory_slot(row, "%sSlot" % crop_item_id.to_pascal_case(), _item_name(crop_item_id), value_name, _crop_swatch(crop_item_id))
+		crop_value_labels[crop_item_id] = label
 
 
-func _add_inventory_slot(parent: HBoxContainer, slot_name: String, label_text: String, value_name: String, swatch_color: Color) -> Label:
-	var slot := PanelContainer.new()
+func _add_inventory_slot(
+	parent: HBoxContainer,
+	slot_name: String,
+	label_text: String,
+	value_name: String,
+	swatch_color: Color,
+	clickable: bool = false,
+	seed_item_id: String = ""
+) -> Label:
+	var slot: Control
+	if clickable:
+		var button := Button.new()
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(_select_seed.bind(seed_item_id))
+		slot = button
+		seed_slot_buttons[seed_item_id] = button
+	else:
+		slot = PanelContainer.new()
+
 	slot.name = slot_name
-	slot.custom_minimum_size = Vector2(148, 58)
+	slot.custom_minimum_size = Vector2(118, 72)
 	parent.add_child(slot)
 
 	var margin := MarginContainer.new()
@@ -165,11 +278,11 @@ func _add_inventory_slot(parent: HBoxContainer, slot_name: String, label_text: S
 	slot.add_child(margin)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6)
 	margin.add_child(row)
 
 	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = Vector2(24, 24)
+	swatch.custom_minimum_size = Vector2(18, 18)
 	swatch.color = swatch_color
 	row.add_child(swatch)
 
@@ -189,34 +302,86 @@ func _add_inventory_slot(parent: HBoxContainer, slot_name: String, label_text: S
 
 
 func _update_ui(message: String) -> void:
-	status_label.text = "第 %d 天  %02d:%02d  金钱: %d  种子: %d  萝卜: %d\n%s" % [
+	status_label.text = "第 %d 天 %02d:%02d  金币: %d  当前种子: %s\n%s" % [
 		time_manager.day,
 		time_manager.hour,
 		time_manager.minute,
 		inventory.money,
-		inventory.count("turnip_seed"),
-		inventory.count("turnip"),
+		_item_name(selected_seed_item_id),
 		message,
 	]
+	if shop_message_label != null:
+		shop_message_label.text = message
 
 
 func refresh_inventory_ui() -> void:
-	if money_value_label == null or seed_value_label == null or turnip_value_label == null:
+	if money_value_label == null:
 		return
 
 	money_value_label.text = str(inventory.money)
-	seed_value_label.text = str(inventory.count("turnip_seed"))
-	turnip_value_label.text = str(inventory.count("turnip"))
+	for seed_item_id in SEED_ITEMS:
+		if seed_value_labels.has(seed_item_id):
+			seed_value_labels[seed_item_id].text = str(inventory.count(seed_item_id))
+		if seed_slot_buttons.has(seed_item_id):
+			var button: Button = seed_slot_buttons[seed_item_id]
+			button.modulate = Color("#fff1a6") if seed_item_id == selected_seed_item_id else Color.WHITE
+
+	for crop_item_id in CROP_ITEMS:
+		if crop_value_labels.has(crop_item_id):
+			crop_value_labels[crop_item_id].text = str(inventory.count(crop_item_id))
+
+	_update_shop_ui()
+
+
+func _update_shop_ui() -> void:
+	if shop_panel == null or shop_money_label == null:
+		return
+
+	shop_money_label.text = "金币：%d" % inventory.money
+	for seed_item_id in SEED_ITEMS:
+		var button := shop_panel.find_child("%sBuyButton" % seed_item_id.to_pascal_case(), true, false)
+		if button is Button:
+			var price := int(data_manager.items[seed_item_id].get("price", 0))
+			button.text = "购买 %s - %d 金" % [_item_name(seed_item_id), price]
 
 
 func _update_target_hint() -> void:
 	if farm_manager == null or player == null or hint_label == null:
 		return
 
-	target_info = farm_manager.get_target_info(player.facing_position())
-	var prompt := String(target_info.get("prompt", ""))
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | N 下一天 | M 卖萝卜"
+	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售"
 	if bool(target_info.get("valid", false)):
-		hint_label.text += "\n当前农田: %s" % prompt
+		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
-		hint_label.text += "\n当前农田: 面向农田格子可查看操作提示"
+		hint_label.text += "\n当前农田: 面向或点击农田格查看操作。"
+
+
+func _item_name(item_id: String) -> String:
+	var item: Dictionary = data_manager.items.get(item_id, {})
+	return String(item.get("name", item_id))
+
+
+func _seed_value_name(seed_item_id: String) -> String:
+	if seed_item_id == "turnip_seed":
+		return "SeedValue"
+	return "%sValue" % seed_item_id.to_pascal_case()
+
+
+func _crop_value_name(crop_item_id: String) -> String:
+	if crop_item_id == "turnip":
+		return "TurnipValue"
+	return "%sValue" % crop_item_id.to_pascal_case()
+
+
+func _crop_swatch(crop_item_id: String) -> Color:
+	match crop_item_id:
+		"turnip":
+			return Color("#d6513b")
+		"potato":
+			return Color("#c89a5b")
+		"cabbage":
+			return Color("#77b95b")
+		"corn":
+			return Color("#f1cf4a")
+	return Color("#d6513b")

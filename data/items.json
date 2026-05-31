@@ -5,10 +5,46 @@
     "price": 20,
     "stack": 99
   },
+  "potato_seed": {
+    "name": "土豆种子",
+    "type": "seed",
+    "price": 30,
+    "stack": 99
+  },
+  "cabbage_seed": {
+    "name": "白菜种子",
+    "type": "seed",
+    "price": 40,
+    "stack": 99
+  },
+  "corn_seed": {
+    "name": "玉米种子",
+    "type": "seed",
+    "price": 50,
+    "stack": 99
+  },
   "turnip": {
     "name": "萝卜",
     "type": "crop",
     "sell_price": 60,
+    "stack": 99
+  },
+  "potato": {
+    "name": "土豆",
+    "type": "crop",
+    "sell_price": 90,
+    "stack": 99
+  },
+  "cabbage": {
+    "name": "白菜",
+    "type": "crop",
+    "sell_price": 130,
+    "stack": 99
+  },
+  "corn": {
+    "name": "玉米",
+    "type": "crop",
+    "sell_price": 160,
     "stack": 99
   },
   "hoe": {

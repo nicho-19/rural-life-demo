@@ -25,7 +25,7 @@ func _init() -> void:
 	if first_tile.get("rect") != Rect2(Vector2(512, 280), Vector2(30, 30)):
 		_fail("The first farm tile should expose its draw rectangle for highlighting.")
 		return
-	if not String(first_tile.get("prompt", "")).contains("Till"):
+	if not String(first_tile.get("prompt", "")).contains("开垦"):
 		_fail("An empty tile should prompt the player to till soil.")
 		return
 

@@ -6,5 +6,29 @@
     "season": ["spring"],
     "sell_price": 60,
     "stages": 3
+  },
+  "potato": {
+    "name": "土豆",
+    "seed_item": "potato_seed",
+    "grow_days": 4,
+    "season": ["spring"],
+    "sell_price": 90,
+    "stages": 4
+  },
+  "cabbage": {
+    "name": "白菜",
+    "seed_item": "cabbage_seed",
+    "grow_days": 5,
+    "season": ["spring"],
+    "sell_price": 130,
+    "stages": 5
+  },
+  "corn": {
+    "name": "玉米",
+    "seed_item": "corn_seed",
+    "grow_days": 6,
+    "season": ["spring"],
+    "sell_price": 160,
+    "stages": 6
   }
 }
