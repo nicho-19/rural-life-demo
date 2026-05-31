@@ -8,6 +8,7 @@ const ShopManagerScript := preload("res://scripts/shop/ShopManager.gd")
 const OrderManagerScript := preload("res://scripts/orders/OrderManager.gd")
 const SaveManagerScript := preload("res://scripts/save/SaveManager.gd")
 const StatsManagerScript := preload("res://scripts/stats/StatsManager.gd")
+const WeatherManagerScript := preload("res://scripts/weather/WeatherManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -22,10 +23,12 @@ var shop_manager
 var order_manager
 var save_manager
 var stats_manager
+var weather_manager
 var selected_seed_item_id := "turnip_seed"
 var status_label: Label
 var hint_label: Label
 var order_label: Label
+var weather_label: Label
 var money_value_label: Label
 var seed_value_labels: Dictionary = {}
 var crop_value_labels: Dictionary = {}
@@ -59,6 +62,9 @@ func _ready() -> void:
 	order_manager.start_day(time_manager.day)
 
 	stats_manager = StatsManagerScript.new()
+
+	weather_manager = WeatherManagerScript.new()
+	weather_manager.start_day(time_manager.day)
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -120,7 +126,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), Color("#89c779"))
 	draw_rect(Rect2(Vector2(0, 500), Vector2(1280, 220)), Color("#d9b77f"))
-	draw_rect(Rect2(Vector2(0, 0), Vector2(1280, 90)), Color("#8fc9ef"))
+	draw_rect(Rect2(Vector2(0, 0), Vector2(1280, 90)), weather_manager.sky_color())
+	if weather_manager.is_rainy():
+		for x in range(0, 1280, 26):
+			draw_line(Vector2(x, 96), Vector2(x - 8, 122), Color("#d7edf7"), 1.0)
 	draw_rect(Rect2(Vector2(420, 210), Vector2(380, 280)), Color("#9b7043"))
 	var highlighted_cell = target_info.get("cell") if bool(target_info.get("valid", false)) else null
 	farm_manager.draw_farm(self, highlighted_cell)
@@ -137,10 +146,20 @@ func _interact_with_farm_at(world_position: Vector2) -> void:
 
 
 func _next_day() -> void:
+	var rain_message := ""
+	if weather_manager.is_rainy():
+		var watered_count: int = farm_manager.water_all_planted()
+		if watered_count > 0:
+			rain_message = "雨水帮你浇灌了 %d 块作物。" % watered_count
+
 	time_manager.next_day()
 	farm_manager.advance_day()
 	order_manager.start_day(time_manager.day)
-	_update_ui("睡了一觉。第 %d 天开始，新的可选订单来了；不做也没关系。" % time_manager.day)
+	weather_manager.start_day(time_manager.day)
+	var message := "睡了一觉。第 %d 天开始，新的可选订单来了；不做也没关系。" % time_manager.day
+	if not rain_message.is_empty():
+		message = "%s\n%s" % [rain_message, message]
+	_update_ui(message)
 	refresh_inventory_ui()
 	_update_target_hint()
 
@@ -174,7 +193,8 @@ func _save_game() -> void:
 		time_manager,
 		order_manager,
 		selected_seed_item_id,
-		stats_manager
+		stats_manager,
+		weather_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -199,7 +219,8 @@ func _load_game_state() -> Dictionary:
 		farm_manager,
 		time_manager,
 		order_manager,
-		stats_manager
+		stats_manager,
+		weather_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
@@ -272,6 +293,11 @@ func _build_ui() -> void:
 	order_label.name = "OrderValue"
 	order_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(order_label)
+
+	weather_label = Label.new()
+	weather_label.name = "WeatherValue"
+	weather_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(weather_label)
 
 	status_label = Label.new()
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -446,6 +472,7 @@ func _update_ui(message: String) -> void:
 	if shop_message_label != null:
 		shop_message_label.text = message
 	_update_order_ui()
+	_update_weather_ui()
 	_update_stats_ui()
 
 
@@ -467,6 +494,7 @@ func refresh_inventory_ui() -> void:
 
 	_update_shop_ui()
 	_update_order_ui()
+	_update_weather_ui()
 	_update_stats_ui()
 
 
@@ -498,6 +526,12 @@ func _update_order_ui() -> void:
 	if order_label == null or order_manager == null:
 		return
 	order_label.text = order_manager.describe_order(inventory)
+
+
+func _update_weather_ui() -> void:
+	if weather_label == null or weather_manager == null:
+		return
+	weather_label.text = weather_manager.describe()
 
 
 func _update_stats_ui() -> void:

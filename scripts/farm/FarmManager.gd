@@ -97,6 +97,16 @@ func advance_day() -> void:
 			tile["state"] = TileState.PLANTED
 
 
+func water_all_planted() -> int:
+	var watered_count := 0
+	for cell in tiles.keys():
+		var tile: Dictionary = tiles[cell]
+		if int(tile["state"]) == TileState.PLANTED:
+			tile["state"] = TileState.WATERED
+			watered_count += 1
+	return watered_count
+
+
 func crop_id_for_seed(seed_item_id: String) -> String:
 	for crop_id in crops.keys():
 		var crop: Dictionary = crops[crop_id]
