@@ -7,6 +7,7 @@ const TimeManagerScript := preload("res://scripts/core/TimeManager.gd")
 const ShopManagerScript := preload("res://scripts/shop/ShopManager.gd")
 const OrderManagerScript := preload("res://scripts/orders/OrderManager.gd")
 const SaveManagerScript := preload("res://scripts/save/SaveManager.gd")
+const StatsManagerScript := preload("res://scripts/stats/StatsManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -20,6 +21,7 @@ var inventory
 var shop_manager
 var order_manager
 var save_manager
+var stats_manager
 var selected_seed_item_id := "turnip_seed"
 var status_label: Label
 var hint_label: Label
@@ -31,6 +33,8 @@ var seed_slot_buttons: Dictionary = {}
 var shop_panel: PanelContainer
 var shop_money_label: Label
 var shop_message_label: Label
+var stats_panel: PanelContainer
+var stats_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -53,6 +57,8 @@ func _ready() -> void:
 	order_manager = OrderManagerScript.new()
 	order_manager.setup(data_manager.items)
 	order_manager.start_day(time_manager.day)
+
+	stats_manager = StatsManagerScript.new()
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -92,6 +98,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_save_game()
 		KEY_F9:
 			_load_game()
+		KEY_I:
+			_toggle_stats()
 		KEY_B:
 			_toggle_shop()
 		KEY_1:
@@ -119,7 +127,10 @@ func _draw() -> void:
 
 
 func _interact_with_farm_at(world_position: Vector2) -> void:
+	var before_seeds := _counts_for(SEED_ITEMS)
+	var before_crops := _counts_for(CROP_ITEMS)
 	var result: String = farm_manager.interact_at(world_position, inventory, selected_seed_item_id)
+	_record_farm_changes(before_seeds, before_crops)
 	_update_ui(result)
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -135,14 +146,21 @@ func _next_day() -> void:
 
 
 func _sell_all_crops() -> void:
+	var before_crops := _counts_for(CROP_ITEMS)
+	var money_before: int = inventory.money
 	var result: Dictionary = shop_manager.sell_all_crops(inventory, CROP_ITEMS)
+	if bool(result.get("success", false)):
+		_record_sold_changes(before_crops, inventory.money - money_before)
 	_update_ui(String(result.get("message", "没有可以出售的作物。")))
 	refresh_inventory_ui()
 	_update_target_hint()
 
 
 func _deliver_order() -> void:
+	var money_before: int = inventory.money
 	var result: Dictionary = order_manager.deliver_order(inventory)
+	if bool(result.get("success", false)):
+		stats_manager.record_order_completed(inventory.money - money_before)
 	_update_ui(String(result.get("message", "订单交付失败。")))
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -155,7 +173,8 @@ func _save_game() -> void:
 		farm_manager,
 		time_manager,
 		order_manager,
-		selected_seed_item_id
+		selected_seed_item_id,
+		stats_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -179,7 +198,8 @@ func _load_game_state() -> Dictionary:
 		inventory,
 		farm_manager,
 		time_manager,
-		order_manager
+		order_manager,
+		stats_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
@@ -216,6 +236,15 @@ func _toggle_shop() -> void:
 		_update_ui("商店关闭。")
 
 
+func _toggle_stats() -> void:
+	stats_panel.visible = not stats_panel.visible
+	_update_stats_ui()
+	if stats_panel.visible:
+		_update_ui("图鉴打开了。这里只有记录和回忆，不会强迫你完成任何东西。")
+	else:
+		_update_ui("图鉴关闭。")
+
+
 func _build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -236,7 +265,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -249,6 +278,7 @@ func _build_ui() -> void:
 	box.add_child(status_label)
 
 	_build_shop_panel(canvas)
+	_build_stats_panel(canvas)
 	_build_inventory_bar(canvas)
 
 
@@ -288,6 +318,35 @@ func _build_shop_panel(canvas: CanvasLayer) -> void:
 	shop_message_label = Label.new()
 	shop_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(shop_message_label)
+
+
+func _build_stats_panel(canvas: CanvasLayer) -> void:
+	stats_panel = PanelContainer.new()
+	stats_panel.name = "StatsPanel"
+	stats_panel.position = Vector2(940, 18)
+	stats_panel.custom_minimum_size = Vector2(318, 246)
+	stats_panel.visible = false
+	canvas.add_child(stats_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	stats_panel.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "农场图鉴"
+	box.add_child(title)
+
+	stats_value_label = Label.new()
+	stats_value_label.name = "StatsValue"
+	stats_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(stats_value_label)
 
 
 func _build_inventory_bar(canvas: CanvasLayer) -> void:
@@ -387,6 +446,7 @@ func _update_ui(message: String) -> void:
 	if shop_message_label != null:
 		shop_message_label.text = message
 	_update_order_ui()
+	_update_stats_ui()
 
 
 func refresh_inventory_ui() -> void:
@@ -407,6 +467,7 @@ func refresh_inventory_ui() -> void:
 
 	_update_shop_ui()
 	_update_order_ui()
+	_update_stats_ui()
 
 
 func _update_shop_ui() -> void:
@@ -426,7 +487,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -437,6 +498,12 @@ func _update_order_ui() -> void:
 	if order_label == null or order_manager == null:
 		return
 	order_label.text = order_manager.describe_order(inventory)
+
+
+func _update_stats_ui() -> void:
+	if stats_value_label == null or stats_manager == null:
+		return
+	stats_value_label.text = stats_manager.describe(data_manager.items)
 
 
 func _item_name(item_id: String) -> String:
@@ -467,6 +534,34 @@ func _crop_swatch(crop_item_id: String) -> Color:
 		"corn":
 			return Color("#f1cf4a")
 	return Color("#d6513b")
+
+
+func _counts_for(item_ids: Array[String]) -> Dictionary:
+	var counts: Dictionary = {}
+	for item_id in item_ids:
+		counts[item_id] = inventory.count(item_id)
+	return counts
+
+
+func _record_farm_changes(before_seeds: Dictionary, before_crops: Dictionary) -> void:
+	for seed_item_id in SEED_ITEMS:
+		if inventory.count(seed_item_id) < int(before_seeds.get(seed_item_id, 0)):
+			var crop_id: String = farm_manager.crop_id_for_seed(seed_item_id)
+			if not crop_id.is_empty():
+				stats_manager.record_planted(crop_id)
+
+	for crop_id in CROP_ITEMS:
+		var delta: int = inventory.count(crop_id) - int(before_crops.get(crop_id, 0))
+		if delta > 0:
+			stats_manager.record_harvested(crop_id, delta)
+
+
+func _record_sold_changes(before_crops: Dictionary, earned: int) -> void:
+	for crop_id in CROP_ITEMS:
+		var sold_count: int = int(before_crops.get(crop_id, 0)) - inventory.count(crop_id)
+		if sold_count > 0:
+			var sell_price := int(data_manager.items[crop_id].get("sell_price", 0))
+			stats_manager.record_sold(crop_id, sold_count, sell_price * sold_count)
 
 
 func _should_auto_load() -> bool:

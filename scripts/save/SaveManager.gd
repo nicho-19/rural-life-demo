@@ -10,7 +10,8 @@ func save_game(
 	farm_manager,
 	time_manager,
 	order_manager,
-	selected_seed_item_id: String
+	selected_seed_item_id: String,
+	stats_manager = null
 ) -> Dictionary:
 	var data := {
 		"version": SAVE_VERSION,
@@ -20,6 +21,8 @@ func save_game(
 		"time": time_manager.to_save_data(),
 		"order": order_manager.to_save_data(),
 	}
+	if stats_manager != null:
+		data["stats"] = stats_manager.to_save_data()
 
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
@@ -71,12 +74,15 @@ func apply_save_data(
 	inventory,
 	farm_manager,
 	time_manager,
-	order_manager
+	order_manager,
+	stats_manager = null
 ) -> Dictionary:
 	inventory.load_save_data(_dictionary_from(data.get("inventory", {})))
 	farm_manager.load_save_data(_dictionary_from(data.get("farm", {})))
 	time_manager.load_save_data(_dictionary_from(data.get("time", {})))
 	order_manager.load_save_data(_dictionary_from(data.get("order", {})))
+	if stats_manager != null:
+		stats_manager.load_save_data(_dictionary_from(data.get("stats", {})))
 
 	return {
 		"success": true,
