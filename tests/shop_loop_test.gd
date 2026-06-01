@@ -68,6 +68,20 @@ func _init() -> void:
 		_fail("Selling animal products should remove sold items from inventory.")
 		return
 
+	inventory.money = 0
+	inventory.add_item("dried_turnip", 1)
+	inventory.add_item("mayonnaise", 2)
+	var processed_sell_result: Dictionary = shop.sell_all_items(inventory, ["dried_turnip", "mayonnaise"])
+	if not bool(processed_sell_result.get("success", false)):
+		_fail("Selling processed goods should succeed.")
+		return
+	if inventory.money != 275:
+		_fail("Selling 1 dried turnip and 2 mayonnaise should earn 275 gold.")
+		return
+	if inventory.count("dried_turnip") != 0 or inventory.count("mayonnaise") != 0:
+		_fail("Selling processed goods should remove sold items from inventory.")
+		return
+
 	print("PASS shop_loop_test")
 	quit(0)
 

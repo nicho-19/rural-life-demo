@@ -9,7 +9,8 @@ func _init() -> void:
 		"天气：多云。今天很安静。",
 		"可选订单：萝卜 0/2 | 奖励 150 金",
 		"小里程碑：已点亮 1 / 5。",
-		"动物：鸡 2/4，牛 1/2，今天已喂 1/3。"
+		"动物：鸡 2/4，牛 1/2，今天已喂 1/3。",
+		"加工提示：按 C 打开加工坊。"
 	)
 
 	if not text.contains("今日简报"):
@@ -26,6 +27,9 @@ func _init() -> void:
 		return
 	if not text.contains("动物：鸡 2/4"):
 		_fail("Briefing should include animal context.")
+		return
+	if not text.contains("加工提示"):
+		_fail("Briefing should include crafting context.")
 		return
 	if not text.contains("自由安排"):
 		_fail("Briefing should remind players the day is flexible.")

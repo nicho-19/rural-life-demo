@@ -65,6 +65,36 @@
     "sell_price": 90,
     "stack": 99
   },
+  "dried_turnip": {
+    "name": "萝卜干",
+    "type": "processed",
+    "sell_price": 95,
+    "stack": 99
+  },
+  "hash_brown": {
+    "name": "薯饼",
+    "type": "processed",
+    "sell_price": 145,
+    "stack": 99
+  },
+  "cornmeal": {
+    "name": "玉米粉",
+    "type": "processed",
+    "sell_price": 220,
+    "stack": 99
+  },
+  "mayonnaise": {
+    "name": "蛋黄酱",
+    "type": "processed",
+    "sell_price": 90,
+    "stack": 99
+  },
+  "cheese": {
+    "name": "奶酪",
+    "type": "processed",
+    "sell_price": 170,
+    "stack": 99
+  },
   "hoe": {
     "name": "锄头",
     "type": "tool",

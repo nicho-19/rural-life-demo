@@ -1,0 +1,42 @@
+{
+  "dried_turnip": {
+    "name": "萝卜干",
+    "ingredients": {
+      "turnip": 1
+    },
+    "output": "dried_turnip",
+    "output_amount": 1
+  },
+  "hash_brown": {
+    "name": "薯饼",
+    "ingredients": {
+      "potato": 1
+    },
+    "output": "hash_brown",
+    "output_amount": 1
+  },
+  "cornmeal": {
+    "name": "玉米粉",
+    "ingredients": {
+      "corn": 2
+    },
+    "output": "cornmeal",
+    "output_amount": 1
+  },
+  "mayonnaise": {
+    "name": "蛋黄酱",
+    "ingredients": {
+      "egg": 1
+    },
+    "output": "mayonnaise",
+    "output_amount": 1
+  },
+  "cheese": {
+    "name": "奶酪",
+    "ingredients": {
+      "milk": 1
+    },
+    "output": "cheese",
+    "output_amount": 1
+  }
+}
