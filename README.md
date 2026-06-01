@@ -45,3 +45,9 @@ Godot 4 农村经营游戏 demo。
 - Godot: `C:\Users\10605\Desktop\动画\tools\Godot-4.6.3\Godot_v4.6.3-stable_win64.exe`
 - Tiled: `C:\Program Files\Tiled\tiled.exe`
 - LibreSprite: `C:\Users\10605\Desktop\动画\tools\LibreSprite-v1.2\libresprite.exe`
+## Fishing Loop
+
+- Press `P` to open or close the fishing panel.
+- Press `K` or the panel button to cast.
+- You can fish 3 times per day; rainy days can produce a rare fish.
+- Fish are sold together with other farm goods by pressing `M`.

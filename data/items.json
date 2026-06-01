@@ -95,6 +95,24 @@
     "sell_price": 170,
     "stack": 99
   },
+  "pond_fish": {
+    "name": "Pond Fish",
+    "type": "fish",
+    "sell_price": 35,
+    "stack": 99
+  },
+  "river_fish": {
+    "name": "River Fish",
+    "type": "fish",
+    "sell_price": 55,
+    "stack": 99
+  },
+  "rare_fish": {
+    "name": "Rare Fish",
+    "type": "fish",
+    "sell_price": 140,
+    "stack": 99
+  },
   "hoe": {
     "name": "锄头",
     "type": "tool",

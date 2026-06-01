@@ -12,6 +12,7 @@ const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManag
 const JournalManagerScript := preload("res://scripts/journal/JournalManager.gd")
 const AnimalManagerScript := preload("res://scripts/animals/AnimalManager.gd")
 const NpcRelationshipManagerScript := preload("res://scripts/npcs/NpcRelationshipManager.gd")
+const FishingManagerScript := preload("res://scripts/fishing/FishingManager.gd")
 
 func _init() -> void:
 	var data_manager = DataManagerScript.new()
@@ -69,6 +70,10 @@ func _init() -> void:
 	inventory.add_item("turnip", 1)
 	npc_manager.give_gift("mayor_lin", "turnip", inventory, time_manager.day)
 
+	var fishing_manager = FishingManagerScript.new()
+	fishing_manager.start_day(time_manager.day)
+	fishing_manager.cast(inventory, time_manager.day, weather_manager.current_weather_id)
+
 	var save_manager = SaveManagerScript.new()
 	var save_path := "user://save_manager_test.json"
 	var saved: Dictionary = save_manager.save_game(
@@ -83,7 +88,8 @@ func _init() -> void:
 		milestone_manager,
 		journal_manager,
 		animal_manager,
-		npc_manager
+		npc_manager,
+		fishing_manager
 	)
 	if not bool(saved.get("success", false)):
 		_fail("save_game should write a save file.")
@@ -102,6 +108,7 @@ func _init() -> void:
 	journal_manager.load_save_data({})
 	animal_manager.load_save_data({})
 	npc_manager.load_save_data({})
+	fishing_manager.load_save_data({})
 
 	var loaded: Dictionary = save_manager.load_game(save_path)
 	if not bool(loaded.get("success", false)):
@@ -119,7 +126,8 @@ func _init() -> void:
 		milestone_manager,
 		journal_manager,
 		animal_manager,
-		npc_manager
+		npc_manager,
+		fishing_manager
 	)
 	if not bool(applied.get("success", false)):
 		_fail("apply_save_data should restore managers from the save.")
@@ -130,6 +138,9 @@ func _init() -> void:
 		return
 	if inventory.count("potato_seed") != 2 or inventory.count("cabbage") != 2 or inventory.count("cheese") != 1:
 		_fail("Loaded save should restore inventory items.")
+		return
+	if inventory.count("pond_fish") + inventory.count("river_fish") + inventory.count("rare_fish") != 1:
+		_fail("Loaded save should restore caught fish.")
 		return
 	if time_manager.day != 4 or time_manager.hour != 17 or time_manager.minute != 45:
 		_fail("Loaded save should restore time.")
@@ -172,6 +183,9 @@ func _init() -> void:
 		return
 	if not npc_manager.was_gifted_today("mayor_lin", 4):
 		_fail("Loaded save should restore today's NPC gift state.")
+		return
+	if fishing_manager.current_day != 4 or fishing_manager.casts_today != 1:
+		_fail("Loaded save should restore fishing state.")
 		return
 
 	farm_manager.free()
