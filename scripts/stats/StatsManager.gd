@@ -37,6 +37,18 @@ func count_sold(crop_id: String) -> int:
 	return int(sold.get(crop_id, 0))
 
 
+func total_planted() -> int:
+	return _total_count(planted)
+
+
+func total_harvested() -> int:
+	return _total_count(harvested)
+
+
+func total_sold() -> int:
+	return _total_count(sold)
+
+
 func describe(items: Dictionary) -> String:
 	var lines: Array[String] = [
 		"农场图鉴（只记录，不强制）",
@@ -77,6 +89,13 @@ func _add_count(target: Dictionary, crop_id: String, amount: int) -> void:
 	if amount <= 0:
 		return
 	target[crop_id] = int(target.get(crop_id, 0)) + amount
+
+
+func _total_count(source: Dictionary) -> int:
+	var total := 0
+	for key in source.keys():
+		total += int(source[key])
+	return total
 
 
 func _counts_from(value) -> Dictionary:

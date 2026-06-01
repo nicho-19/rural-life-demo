@@ -8,6 +8,7 @@ const OrderManagerScript := preload("res://scripts/orders/OrderManager.gd")
 const SaveManagerScript := preload("res://scripts/save/SaveManager.gd")
 const StatsManagerScript := preload("res://scripts/stats/StatsManager.gd")
 const WeatherManagerScript := preload("res://scripts/weather/WeatherManager.gd")
+const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManager.gd")
 
 func _init() -> void:
 	var data_manager = DataManagerScript.new()
@@ -43,6 +44,9 @@ func _init() -> void:
 	var weather_manager = WeatherManagerScript.new()
 	weather_manager.start_day(3)
 
+	var milestone_manager = MilestoneManagerScript.new()
+	milestone_manager.check(stats_manager, inventory)
+
 	var save_manager = SaveManagerScript.new()
 	var save_path := "user://save_manager_test.json"
 	var saved: Dictionary = save_manager.save_game(
@@ -53,7 +57,8 @@ func _init() -> void:
 		order_manager,
 		"potato_seed",
 		stats_manager,
-		weather_manager
+		weather_manager,
+		milestone_manager
 	)
 	if not bool(saved.get("success", false)):
 		_fail("save_game should write a save file.")
@@ -68,6 +73,7 @@ func _init() -> void:
 	order_manager.start_day(1)
 	stats_manager.load_save_data({})
 	weather_manager.start_day(1)
+	milestone_manager.load_save_data({})
 
 	var loaded: Dictionary = save_manager.load_game(save_path)
 	if not bool(loaded.get("success", false)):
@@ -81,7 +87,8 @@ func _init() -> void:
 		time_manager,
 		order_manager,
 		stats_manager,
-		weather_manager
+		weather_manager,
+		milestone_manager
 	)
 	if not bool(applied.get("success", false)):
 		_fail("apply_save_data should restore managers from the save.")
@@ -113,6 +120,9 @@ func _init() -> void:
 		return
 	if not weather_manager.is_rainy():
 		_fail("Loaded save should restore weather.")
+		return
+	if not milestone_manager.check(stats_manager, inventory).is_empty():
+		_fail("Loaded save should restore unlocked milestones.")
 		return
 
 	farm_manager.free()

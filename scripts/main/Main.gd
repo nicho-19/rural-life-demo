@@ -9,6 +9,7 @@ const OrderManagerScript := preload("res://scripts/orders/OrderManager.gd")
 const SaveManagerScript := preload("res://scripts/save/SaveManager.gd")
 const StatsManagerScript := preload("res://scripts/stats/StatsManager.gd")
 const WeatherManagerScript := preload("res://scripts/weather/WeatherManager.gd")
+const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -24,11 +25,14 @@ var order_manager
 var save_manager
 var stats_manager
 var weather_manager
+var milestone_manager
 var selected_seed_item_id := "turnip_seed"
+var recent_milestone_message := ""
 var status_label: Label
 var hint_label: Label
 var order_label: Label
 var weather_label: Label
+var milestone_label: Label
 var money_value_label: Label
 var seed_value_labels: Dictionary = {}
 var crop_value_labels: Dictionary = {}
@@ -67,6 +71,8 @@ func _ready() -> void:
 
 	weather_manager = WeatherManagerScript.new()
 	weather_manager.start_day(time_manager.day)
+
+	milestone_manager = MilestoneManagerScript.new()
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -144,6 +150,7 @@ func _interact_with_farm_at(world_position: Vector2) -> void:
 	var before_crops := _counts_for(CROP_ITEMS)
 	var result: String = farm_manager.interact_at(world_position, inventory, selected_seed_item_id)
 	_record_farm_changes(before_seeds, before_crops)
+	_check_milestones()
 	_update_ui(result)
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -174,6 +181,7 @@ func _sell_all_crops() -> void:
 	var result: Dictionary = shop_manager.sell_all_crops(inventory, CROP_ITEMS)
 	if bool(result.get("success", false)):
 		_record_sold_changes(before_crops, inventory.money - money_before)
+	_check_milestones()
 	_update_ui(String(result.get("message", "没有可以出售的作物。")))
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -184,6 +192,7 @@ func _deliver_order() -> void:
 	var result: Dictionary = order_manager.deliver_order(inventory)
 	if bool(result.get("success", false)):
 		stats_manager.record_order_completed(inventory.money - money_before)
+	_check_milestones()
 	_update_ui(String(result.get("message", "订单交付失败。")))
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -198,7 +207,8 @@ func _save_game() -> void:
 		order_manager,
 		selected_seed_item_id,
 		stats_manager,
-		weather_manager
+		weather_manager,
+		milestone_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -224,7 +234,8 @@ func _load_game_state() -> Dictionary:
 		time_manager,
 		order_manager,
 		stats_manager,
-		weather_manager
+		weather_manager,
+		milestone_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
@@ -310,6 +321,11 @@ func _build_ui() -> void:
 	weather_label.name = "WeatherValue"
 	weather_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(weather_label)
+
+	milestone_label = Label.new()
+	milestone_label.name = "MilestoneValue"
+	milestone_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(milestone_label)
 
 	status_label = Label.new()
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -520,6 +536,7 @@ func _update_ui(message: String) -> void:
 		shop_message_label.text = message
 	_update_order_ui()
 	_update_weather_ui()
+	_update_milestone_ui()
 	_update_stats_ui()
 
 
@@ -542,6 +559,7 @@ func refresh_inventory_ui() -> void:
 	_update_shop_ui()
 	_update_order_ui()
 	_update_weather_ui()
+	_update_milestone_ui()
 	_update_stats_ui()
 
 
@@ -581,6 +599,15 @@ func _update_weather_ui() -> void:
 	weather_label.text = weather_manager.describe()
 
 
+func _update_milestone_ui() -> void:
+	if milestone_label == null or milestone_manager == null:
+		return
+	if recent_milestone_message.is_empty():
+		milestone_label.text = milestone_manager.describe()
+	else:
+		milestone_label.text = recent_milestone_message
+
+
 func _update_stats_ui() -> void:
 	if stats_value_label == null or stats_manager == null:
 		return
@@ -615,6 +642,14 @@ func _crop_swatch(crop_item_id: String) -> Color:
 		"corn":
 			return Color("#f1cf4a")
 	return Color("#d6513b")
+
+
+func _check_milestones() -> void:
+	var messages: Array[String] = milestone_manager.check(stats_manager, inventory)
+	if messages.is_empty():
+		return
+	recent_milestone_message = messages[messages.size() - 1]
+	_update_milestone_ui()
 
 
 func _counts_for(item_ids: Array[String]) -> Dictionary:
