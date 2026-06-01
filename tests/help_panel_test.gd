@@ -15,8 +15,8 @@ func _init() -> void:
 	if not help_text is Label:
 		_fail(main, "Main scene should create a HelpText label.")
 		return
-	if not help_panel.visible:
-		_fail(main, "HelpPanel should be visible on first start.")
+	if help_panel.visible:
+		_fail(main, "HelpPanel should start hidden so it does not cover the farm.")
 		return
 	if not String(help_text.text).contains("自由经营"):
 		_fail(main, "HelpText should explain the game as free-form play.")
@@ -26,12 +26,12 @@ func _init() -> void:
 		return
 
 	main._toggle_help()
-	if help_panel.visible:
-		_fail(main, "Toggling help should hide the panel.")
+	if not help_panel.visible:
+		_fail(main, "Toggling help should show the panel.")
 		return
 	main._toggle_help()
-	if not help_panel.visible:
-		_fail(main, "Toggling help again should show the panel.")
+	if help_panel.visible:
+		_fail(main, "Toggling help again should hide the panel.")
 		return
 
 	_pass(main)

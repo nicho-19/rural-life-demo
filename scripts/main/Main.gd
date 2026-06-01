@@ -635,7 +635,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | C加工 | L动物棚 | V村民 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD移动 | E/空格/鼠标农田 | 1-4选种 | B商店 | H帮助 | N睡觉 | M出售 | F5/F9存读"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -1148,7 +1148,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id, time_manager.current_season())
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | C加工 | L动物棚 | V村民 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD移动 | E/空格/鼠标农田 | 1-4选种 | B商店 | H帮助 | N睡觉 | M出售 | F5/F9存读"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:

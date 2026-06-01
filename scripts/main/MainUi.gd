@@ -1,6 +1,6 @@
 extends RefCounted
 
-const TARGET_HINT_TEXT := "WASD/Arrows move | E/Space interact | Mouse farm | H help | 1-4 seeds | B shop | C craft | L animals | V villagers | U apiary | P fishing | K cast | G forage | Y search | F feed | I stats | J journal | R briefing | X expand | M sell | O order | F5 save | F9 load"
+const TARGET_HINT_TEXT := "WASD move | E/Space farm | Mouse farm | 1-4 seeds | B shop | H help | N sleep | M sell | F5/F9 save/load"
 
 var seed_items: Array[String] = []
 var crop_items: Array[String] = []
@@ -91,7 +91,7 @@ func build(
 func _build_status_panel(canvas: CanvasLayer) -> void:
 	var panel := PanelContainer.new()
 	panel.position = Vector2(18, 18)
-	panel.custom_minimum_size = Vector2(560, 178)
+	panel.custom_minimum_size = Vector2(560, 164)
 	canvas.add_child(panel)
 
 	var margin := _margin(12, 10, 12, 10)
@@ -403,8 +403,8 @@ func _build_help_panel(canvas: CanvasLayer) -> void:
 	help_panel = PanelContainer.new()
 	help_panel.name = "HelpPanel"
 	help_panel.position = Vector2(320, 150)
-	help_panel.custom_minimum_size = Vector2(640, 330)
-	help_panel.visible = true
+	help_panel.custom_minimum_size = Vector2(520, 210)
+	help_panel.visible = false
 	canvas.add_child(help_panel)
 
 	var margin := _margin(18, 14, 18, 14)
@@ -418,7 +418,8 @@ func _build_help_panel(canvas: CanvasLayer) -> void:
 		"",
 		_free_form_play_token(),
 		"Grow crops, keep animals, process goods, and befriend villagers at your own pace.",
-		"Press H to toggle this help panel. Use the hotkeys shown above to open each management panel."
+		"Press H to toggle this help panel.",
+		"Panels: C craft, L animals, V villagers, U apiary, P fishing, G forage, I stats, J journal, R briefing."
 	])
 	margin.add_child(help_text_label)
 
