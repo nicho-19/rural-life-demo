@@ -10,6 +10,7 @@ const SaveManagerScript := preload("res://scripts/save/SaveManager.gd")
 const StatsManagerScript := preload("res://scripts/stats/StatsManager.gd")
 const WeatherManagerScript := preload("res://scripts/weather/WeatherManager.gd")
 const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManager.gd")
+const JournalManagerScript := preload("res://scripts/journal/JournalManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -26,6 +27,7 @@ var save_manager
 var stats_manager
 var weather_manager
 var milestone_manager
+var journal_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
 var status_label: Label
@@ -44,6 +46,8 @@ var stats_panel: PanelContainer
 var stats_value_label: Label
 var help_panel: PanelContainer
 var help_text_label: Label
+var journal_panel: PanelContainer
+var journal_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -73,6 +77,8 @@ func _ready() -> void:
 	weather_manager.start_day(time_manager.day)
 
 	milestone_manager = MilestoneManagerScript.new()
+
+	journal_manager = JournalManagerScript.new()
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -116,6 +122,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_toggle_stats()
 		KEY_H:
 			_toggle_help()
+		KEY_J:
+			_toggle_journal()
 		KEY_B:
 			_toggle_shop()
 		KEY_1:
@@ -151,6 +159,7 @@ func _interact_with_farm_at(world_position: Vector2) -> void:
 	var result: String = farm_manager.interact_at(world_position, inventory, selected_seed_item_id)
 	_record_farm_changes(before_seeds, before_crops)
 	_check_milestones()
+	_record_journal(result)
 	_update_ui(result)
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -162,6 +171,7 @@ func _next_day() -> void:
 		var watered_count: int = farm_manager.water_all_planted()
 		if watered_count > 0:
 			rain_message = "雨水帮你浇灌了 %d 块作物。" % watered_count
+			_record_journal(rain_message)
 
 	time_manager.next_day()
 	farm_manager.advance_day()
@@ -170,6 +180,7 @@ func _next_day() -> void:
 	var message := "睡了一觉。第 %d 天开始，新的可选订单来了；不做也没关系。" % time_manager.day
 	if not rain_message.is_empty():
 		message = "%s\n%s" % [rain_message, message]
+	_record_journal("进入第 %d 天。%s" % [time_manager.day, weather_manager.describe()])
 	_update_ui(message)
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -182,6 +193,7 @@ func _sell_all_crops() -> void:
 	if bool(result.get("success", false)):
 		_record_sold_changes(before_crops, inventory.money - money_before)
 	_check_milestones()
+	_record_journal(String(result.get("message", "")))
 	_update_ui(String(result.get("message", "没有可以出售的作物。")))
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -193,6 +205,7 @@ func _deliver_order() -> void:
 	if bool(result.get("success", false)):
 		stats_manager.record_order_completed(inventory.money - money_before)
 	_check_milestones()
+	_record_journal(String(result.get("message", "")))
 	_update_ui(String(result.get("message", "订单交付失败。")))
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -208,7 +221,8 @@ func _save_game() -> void:
 		selected_seed_item_id,
 		stats_manager,
 		weather_manager,
-		milestone_manager
+		milestone_manager,
+		journal_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -235,7 +249,8 @@ func _load_game_state() -> Dictionary:
 		order_manager,
 		stats_manager,
 		weather_manager,
-		milestone_manager
+		milestone_manager,
+		journal_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
@@ -289,6 +304,15 @@ func _toggle_help() -> void:
 		_update_ui("帮助关闭。")
 
 
+func _toggle_journal() -> void:
+	journal_panel.visible = not journal_panel.visible
+	_update_journal_ui()
+	if journal_panel.visible:
+		_update_ui("日记打开了。这里记录农场故事，不是待办清单。")
+	else:
+		_update_ui("日记关闭。")
+
+
 func _build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -309,7 +333,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -334,6 +358,7 @@ func _build_ui() -> void:
 	_build_shop_panel(canvas)
 	_build_stats_panel(canvas)
 	_build_help_panel(canvas)
+	_build_journal_panel(canvas)
 	_build_inventory_bar(canvas)
 
 
@@ -431,11 +456,32 @@ func _build_help_panel(canvas: CanvasLayer) -> void:
 		"常用按键：",
 		"WASD/方向键移动，E/空格交互，鼠标点击农田操作。",
 		"1-4 选择种子，B 打开商店，M 出售作物，O 交付可选订单。",
-		"I 查看图鉴，F5 保存，F9 读档，H 打开/关闭这个帮助。",
+		"I 查看图鉴，J 查看日记，F5 保存，F9 读档，H 打开/关闭这个帮助。",
 		"",
 		"订单、图鉴和天气都只是让日子更有味道，不会惩罚你慢慢玩。"
 	])
 	margin.add_child(help_text_label)
+
+
+func _build_journal_panel(canvas: CanvasLayer) -> void:
+	journal_panel = PanelContainer.new()
+	journal_panel.name = "JournalPanel"
+	journal_panel.position = Vector2(920, 278)
+	journal_panel.custom_minimum_size = Vector2(340, 300)
+	journal_panel.visible = false
+	canvas.add_child(journal_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	journal_panel.add_child(margin)
+
+	journal_value_label = Label.new()
+	journal_value_label.name = "JournalValue"
+	journal_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	margin.add_child(journal_value_label)
 
 
 func _build_inventory_bar(canvas: CanvasLayer) -> void:
@@ -537,6 +583,7 @@ func _update_ui(message: String) -> void:
 	_update_order_ui()
 	_update_weather_ui()
 	_update_milestone_ui()
+	_update_journal_ui()
 	_update_stats_ui()
 
 
@@ -560,6 +607,7 @@ func refresh_inventory_ui() -> void:
 	_update_order_ui()
 	_update_weather_ui()
 	_update_milestone_ui()
+	_update_journal_ui()
 	_update_stats_ui()
 
 
@@ -580,7 +628,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -606,6 +654,12 @@ func _update_milestone_ui() -> void:
 		milestone_label.text = milestone_manager.describe()
 	else:
 		milestone_label.text = recent_milestone_message
+
+
+func _update_journal_ui() -> void:
+	if journal_value_label == null or journal_manager == null:
+		return
+	journal_value_label.text = journal_manager.describe_recent()
 
 
 func _update_stats_ui() -> void:
@@ -649,7 +703,14 @@ func _check_milestones() -> void:
 	if messages.is_empty():
 		return
 	recent_milestone_message = messages[messages.size() - 1]
+	_record_journal(recent_milestone_message)
 	_update_milestone_ui()
+
+
+func _record_journal(message: String) -> void:
+	if journal_manager == null:
+		return
+	journal_manager.add_entry(time_manager.day, message)
 
 
 func _counts_for(item_ids: Array[String]) -> Dictionary:

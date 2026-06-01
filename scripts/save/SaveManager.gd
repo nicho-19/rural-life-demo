@@ -13,7 +13,8 @@ func save_game(
 	selected_seed_item_id: String,
 	stats_manager = null,
 	weather_manager = null,
-	milestone_manager = null
+	milestone_manager = null,
+	journal_manager = null
 ) -> Dictionary:
 	var data := {
 		"version": SAVE_VERSION,
@@ -29,6 +30,8 @@ func save_game(
 		data["weather"] = weather_manager.to_save_data()
 	if milestone_manager != null:
 		data["milestones"] = milestone_manager.to_save_data()
+	if journal_manager != null:
+		data["journal"] = journal_manager.to_save_data()
 
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
@@ -83,7 +86,8 @@ func apply_save_data(
 	order_manager,
 	stats_manager = null,
 	weather_manager = null,
-	milestone_manager = null
+	milestone_manager = null,
+	journal_manager = null
 ) -> Dictionary:
 	inventory.load_save_data(_dictionary_from(data.get("inventory", {})))
 	farm_manager.load_save_data(_dictionary_from(data.get("farm", {})))
@@ -95,6 +99,8 @@ func apply_save_data(
 		weather_manager.load_save_data(_dictionary_from(data.get("weather", {})))
 	if milestone_manager != null:
 		milestone_manager.load_save_data(_dictionary_from(data.get("milestones", {})))
+	if journal_manager != null:
+		journal_manager.load_save_data(_dictionary_from(data.get("journal", {})))
 
 	return {
 		"success": true,
