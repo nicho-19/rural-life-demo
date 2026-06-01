@@ -47,6 +47,24 @@
     "sell_price": 160,
     "stack": 99
   },
+  "animal_feed": {
+    "name": "动物饲料",
+    "type": "feed",
+    "price": 10,
+    "stack": 99
+  },
+  "egg": {
+    "name": "鸡蛋",
+    "type": "animal_product",
+    "sell_price": 40,
+    "stack": 99
+  },
+  "milk": {
+    "name": "牛奶",
+    "type": "animal_product",
+    "sell_price": 90,
+    "stack": 99
+  },
   "hoe": {
     "name": "锄头",
     "type": "tool",

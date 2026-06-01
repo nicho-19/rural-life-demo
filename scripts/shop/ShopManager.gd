@@ -33,29 +33,33 @@ func buy_item(inventory, item_id: String, amount: int = 1) -> Dictionary:
 
 
 func sell_all_crops(inventory, crop_ids: Array[String]) -> Dictionary:
+	return sell_all_items(inventory, crop_ids)
+
+
+func sell_all_items(inventory, item_ids: Array[String]) -> Dictionary:
 	var earned := 0
 	var sold_count := 0
 	var sold_names: Array[String] = []
 
-	for crop_id in crop_ids:
-		var amount: int = inventory.count(crop_id)
+	for item_id in item_ids:
+		var amount: int = inventory.count(item_id)
 		if amount <= 0:
 			continue
 
-		var item: Dictionary = items.get(crop_id, {})
+		var item: Dictionary = items.get(item_id, {})
 		var price := int(item.get("sell_price", 0))
 		if price <= 0:
 			continue
 
-		inventory.remove_item(crop_id, amount)
+		inventory.remove_item(item_id, amount)
 		earned += amount * price
 		sold_count += amount
-		sold_names.append("%s x%d" % [String(item.get("name", crop_id)), amount])
+		sold_names.append("%s x%d" % [String(item.get("name", item_id)), amount])
 
 	if earned <= 0:
 		return {
 			"success": false,
-			"message": "背包里没有成熟作物可以出售。",
+			"message": "背包里没有成熟农产品可以出售。",
 			"earned": 0,
 			"sold_count": 0,
 		}

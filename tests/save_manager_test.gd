@@ -10,6 +10,7 @@ const StatsManagerScript := preload("res://scripts/stats/StatsManager.gd")
 const WeatherManagerScript := preload("res://scripts/weather/WeatherManager.gd")
 const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManager.gd")
 const JournalManagerScript := preload("res://scripts/journal/JournalManager.gd")
+const AnimalManagerScript := preload("res://scripts/animals/AnimalManager.gd")
 
 func _init() -> void:
 	var data_manager = DataManagerScript.new()
@@ -17,7 +18,7 @@ func _init() -> void:
 
 	var inventory = InventoryScript.new()
 	inventory.setup_starter_items()
-	inventory.money = 525
+	inventory.money = 1425
 	inventory.add_item("potato_seed", 3)
 	inventory.add_item("cabbage", 2)
 
@@ -55,6 +56,12 @@ func _init() -> void:
 	var journal_manager = JournalManagerScript.new()
 	journal_manager.add_entry(4, "测试日记。")
 
+	var animal_manager = AnimalManagerScript.new()
+	animal_manager.buy_chicken(inventory)
+	animal_manager.buy_cow(inventory)
+	inventory.add_item("animal_feed", 2)
+	animal_manager.feed_all(inventory)
+
 	var save_manager = SaveManagerScript.new()
 	var save_path := "user://save_manager_test.json"
 	var saved: Dictionary = save_manager.save_game(
@@ -67,7 +74,8 @@ func _init() -> void:
 		stats_manager,
 		weather_manager,
 		milestone_manager,
-		journal_manager
+		journal_manager,
+		animal_manager
 	)
 	if not bool(saved.get("success", false)):
 		_fail("save_game should write a save file.")
@@ -84,6 +92,7 @@ func _init() -> void:
 	weather_manager.start_day(1)
 	milestone_manager.load_save_data({})
 	journal_manager.load_save_data({})
+	animal_manager.load_save_data({})
 
 	var loaded: Dictionary = save_manager.load_game(save_path)
 	if not bool(loaded.get("success", false)):
@@ -99,7 +108,8 @@ func _init() -> void:
 		stats_manager,
 		weather_manager,
 		milestone_manager,
-		journal_manager
+		journal_manager,
+		animal_manager
 	)
 	if not bool(applied.get("success", false)):
 		_fail("apply_save_data should restore managers from the save.")
@@ -140,6 +150,12 @@ func _init() -> void:
 		return
 	if not journal_manager.describe_recent().contains("测试日记"):
 		_fail("Loaded save should restore journal entries.")
+		return
+	if animal_manager.chickens != 1 or animal_manager.cows != 1:
+		_fail("Loaded save should restore livestock counts.")
+		return
+	if animal_manager.fed_chickens != 1 or animal_manager.fed_cows != 1:
+		_fail("Loaded save should restore livestock feeding state.")
 		return
 
 	farm_manager.free()

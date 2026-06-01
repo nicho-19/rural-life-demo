@@ -12,9 +12,12 @@ const WeatherManagerScript := preload("res://scripts/weather/WeatherManager.gd")
 const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManager.gd")
 const JournalManagerScript := preload("res://scripts/journal/JournalManager.gd")
 const BriefingManagerScript := preload("res://scripts/briefing/BriefingManager.gd")
+const AnimalManagerScript := preload("res://scripts/animals/AnimalManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
+const ANIMAL_PRODUCT_ITEMS: Array[String] = ["egg", "milk"]
+const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk"]
 
 @onready var player: CharacterBody2D = $Player
 
@@ -30,6 +33,7 @@ var weather_manager
 var milestone_manager
 var journal_manager
 var briefing_manager
+var animal_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
 var status_label: Label
@@ -53,6 +57,8 @@ var journal_panel: PanelContainer
 var journal_value_label: Label
 var briefing_panel: PanelContainer
 var briefing_value_label: Label
+var animal_panel: PanelContainer
+var animal_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -85,6 +91,7 @@ func _ready() -> void:
 
 	journal_manager = JournalManagerScript.new()
 	briefing_manager = BriefingManagerScript.new()
+	animal_manager = AnimalManagerScript.new()
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -114,6 +121,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.physical_keycode:
 		KEY_E, KEY_SPACE:
 			_interact_with_farm_at(player.facing_position())
+		KEY_F:
+			_feed_animals()
+		KEY_L:
+			_toggle_animals()
 		KEY_X:
 			_buy_farm_expansion()
 		KEY_R:
@@ -159,6 +170,7 @@ func _draw() -> void:
 		for x in range(0, 1280, 26):
 			draw_line(Vector2(x, 96), Vector2(x - 8, 122), Color("#d7edf7"), 1.0)
 	draw_rect(Rect2(Vector2(420, 210), Vector2(380, 280)), Color("#9b7043"))
+	_draw_animal_area()
 	var highlighted_cell = target_info.get("cell") if bool(target_info.get("valid", false)) else null
 	farm_manager.draw_farm(self, highlighted_cell)
 
@@ -185,9 +197,14 @@ func _next_day() -> void:
 
 	time_manager.next_day()
 	farm_manager.advance_day()
+	var animal_result: Dictionary = animal_manager.advance_day(inventory)
 	order_manager.start_day(time_manager.day)
 	weather_manager.start_day(time_manager.day)
 	var message := "睡了一觉。第 %d 天开始，新的可选订单来了；不做也没关系。" % time_manager.day
+	if int(animal_result.get("egg", 0)) > 0 or int(animal_result.get("milk", 0)) > 0:
+		var animal_message := String(animal_result.get("message", ""))
+		message = "%s\n%s" % [animal_message, message]
+		_record_journal(animal_message)
 	if not rain_message.is_empty():
 		message = "%s\n%s" % [rain_message, message]
 	_record_journal("进入第 %d 天。%s" % [time_manager.day, weather_manager.describe()])
@@ -201,12 +218,12 @@ func _next_day() -> void:
 func _sell_all_crops() -> void:
 	var before_crops := _counts_for(CROP_ITEMS)
 	var money_before: int = inventory.money
-	var result: Dictionary = shop_manager.sell_all_crops(inventory, CROP_ITEMS)
+	var result: Dictionary = shop_manager.sell_all_items(inventory, SELLABLE_ITEMS)
 	if bool(result.get("success", false)):
 		_record_sold_changes(before_crops, inventory.money - money_before)
 	_check_milestones()
 	_record_journal(String(result.get("message", "")))
-	_update_ui(String(result.get("message", "没有可以出售的作物。")))
+	_update_ui(String(result.get("message", "没有可以出售的农产品。")))
 	refresh_inventory_ui()
 	_update_target_hint()
 
@@ -232,6 +249,47 @@ func _buy_farm_expansion() -> void:
 	_update_target_hint()
 
 
+func _buy_chicken() -> void:
+	var result: Dictionary = animal_manager.buy_chicken(inventory)
+	if bool(result.get("success", false)):
+		_record_journal(String(result.get("message", "")))
+	_update_ui(String(result.get("message", "买鸡失败。")))
+	refresh_inventory_ui()
+	_update_animal_ui()
+	_update_target_hint()
+
+
+func _buy_cow() -> void:
+	var result: Dictionary = animal_manager.buy_cow(inventory)
+	if bool(result.get("success", false)):
+		_record_journal(String(result.get("message", "")))
+	_update_ui(String(result.get("message", "买牛失败。")))
+	refresh_inventory_ui()
+	_update_animal_ui()
+	_update_target_hint()
+
+
+func _buy_animal_feed() -> void:
+	var result: Dictionary = shop_manager.buy_item(inventory, AnimalManagerScript.FEED_ITEM_ID, 5)
+	if bool(result.get("success", false)):
+		_record_journal(String(result.get("message", "")))
+	_update_ui(String(result.get("message", "购买饲料失败。")))
+	refresh_inventory_ui()
+	_update_shop_ui()
+	_update_animal_ui()
+	_update_target_hint()
+
+
+func _feed_animals() -> void:
+	var result: Dictionary = animal_manager.feed_all(inventory)
+	if bool(result.get("success", false)):
+		_record_journal(String(result.get("message", "")))
+	_update_ui(String(result.get("message", "喂养失败。")))
+	refresh_inventory_ui()
+	_update_animal_ui()
+	_update_target_hint()
+
+
 func _save_game() -> void:
 	var result: Dictionary = save_manager.save_game(
 		SaveManagerScript.SAVE_PATH,
@@ -243,7 +301,8 @@ func _save_game() -> void:
 		stats_manager,
 		weather_manager,
 		milestone_manager,
-		journal_manager
+		journal_manager,
+		animal_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -271,7 +330,8 @@ func _load_game_state() -> Dictionary:
 		stats_manager,
 		weather_manager,
 		milestone_manager,
-		journal_manager
+		journal_manager,
+		animal_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
@@ -343,6 +403,15 @@ func _toggle_briefing() -> void:
 		_update_ui("晨间简报关闭。")
 
 
+func _toggle_animals() -> void:
+	animal_panel.visible = not animal_panel.visible
+	_update_animal_ui()
+	if animal_panel.visible:
+		_update_ui("动物棚打开了。可以买鸡、买牛、买饲料，也可以喂全部动物。")
+	else:
+		_update_ui("动物棚关闭。")
+
+
 func _build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -363,7 +432,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -392,6 +461,7 @@ func _build_ui() -> void:
 
 	_build_shop_panel(canvas)
 	_build_stats_panel(canvas)
+	_build_animal_panel(canvas)
 	_build_help_panel(canvas)
 	_build_briefing_panel(canvas)
 	_build_journal_panel(canvas)
@@ -431,6 +501,12 @@ func _build_shop_panel(canvas: CanvasLayer) -> void:
 		button.pressed.connect(_buy_seed.bind(seed_item_id))
 		box.add_child(button)
 
+	var feed_button := Button.new()
+	feed_button.name = "AnimalFeedBuyButton"
+	feed_button.focus_mode = Control.FOCUS_NONE
+	feed_button.pressed.connect(_buy_animal_feed)
+	box.add_child(feed_button)
+
 	shop_message_label = Label.new()
 	shop_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(shop_message_label)
@@ -465,6 +541,54 @@ func _build_stats_panel(canvas: CanvasLayer) -> void:
 	box.add_child(stats_value_label)
 
 
+func _build_animal_panel(canvas: CanvasLayer) -> void:
+	animal_panel = PanelContainer.new()
+	animal_panel.name = "AnimalPanel"
+	animal_panel.position = Vector2(570, 238)
+	animal_panel.custom_minimum_size = Vector2(360, 238)
+	animal_panel.visible = false
+	canvas.add_child(animal_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	animal_panel.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "动物棚"
+	box.add_child(title)
+
+	animal_value_label = Label.new()
+	animal_value_label.name = "AnimalValue"
+	animal_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(animal_value_label)
+
+	var chicken_button := Button.new()
+	chicken_button.name = "BuyChickenButton"
+	chicken_button.focus_mode = Control.FOCUS_NONE
+	chicken_button.pressed.connect(_buy_chicken)
+	box.add_child(chicken_button)
+
+	var cow_button := Button.new()
+	cow_button.name = "BuyCowButton"
+	cow_button.focus_mode = Control.FOCUS_NONE
+	cow_button.pressed.connect(_buy_cow)
+	box.add_child(cow_button)
+
+	var feed_button := Button.new()
+	feed_button.name = "FeedAnimalsButton"
+	feed_button.focus_mode = Control.FOCUS_NONE
+	feed_button.text = "喂全部动物"
+	feed_button.pressed.connect(_feed_animals)
+	box.add_child(feed_button)
+
+
 func _build_help_panel(canvas: CanvasLayer) -> void:
 	help_panel = PanelContainer.new()
 	help_panel.name = "HelpPanel"
@@ -491,8 +615,9 @@ func _build_help_panel(canvas: CanvasLayer) -> void:
 		"",
 		"常用按键：",
 		"WASD/方向键移动，E/空格交互，鼠标点击农田操作。",
-		"1-4 选择种子，B 打开商店，M 出售作物，O 交付可选订单。",
-		"I 查看图鉴，J 查看日记，R 查看晨报，X 扩建农田，F5 保存，F9 读档，H 打开/关闭这个帮助。",
+		"1-4 选择种子，B 打开商店，M 出售农产品，O 交付可选订单。",
+		"L 查看动物棚，F 喂全部动物，I 查看图鉴，J 查看日记，R 查看晨报，X 扩建农田。",
+		"F5 保存，F9 读档，H 打开/关闭这个帮助。",
 		"",
 		"订单、图鉴和天气都只是让日子更有味道，不会惩罚你慢慢玩。"
 	])
@@ -643,6 +768,7 @@ func _update_ui(message: String) -> void:
 	_update_journal_ui()
 	_update_briefing_ui()
 	_update_farm_size_ui()
+	_update_animal_ui()
 	_update_stats_ui()
 
 
@@ -669,6 +795,7 @@ func refresh_inventory_ui() -> void:
 	_update_journal_ui()
 	_update_briefing_ui()
 	_update_farm_size_ui()
+	_update_animal_ui()
 	_update_stats_ui()
 
 
@@ -682,6 +809,10 @@ func _update_shop_ui() -> void:
 		if button is Button:
 			var price := int(data_manager.items[seed_item_id].get("price", 0))
 			button.text = "购买 %s - %d 金" % [_item_name(seed_item_id), price]
+	var feed_button := shop_panel.find_child("AnimalFeedBuyButton", true, false)
+	if feed_button is Button:
+		var feed_price := int(data_manager.items[AnimalManagerScript.FEED_ITEM_ID].get("price", 0)) * 5
+		feed_button.text = "购买 动物饲料 x5 - %d 金" % feed_price
 
 
 func _update_target_hint() -> void:
@@ -689,7 +820,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -733,8 +864,21 @@ func _update_briefing_ui() -> void:
 		time_manager.day,
 		weather_manager.describe(),
 		order_manager.describe_order(inventory),
-		milestone_text
+		milestone_text,
+		animal_manager.briefing_text()
 	)
+
+
+func _update_animal_ui() -> void:
+	if animal_value_label == null or animal_manager == null:
+		return
+	animal_value_label.text = animal_manager.describe(inventory)
+	var chicken_button := animal_panel.find_child("BuyChickenButton", true, false)
+	if chicken_button is Button:
+		chicken_button.text = "买鸡 - %d 金" % AnimalManagerScript.CHICKEN_PRICE
+	var cow_button := animal_panel.find_child("BuyCowButton", true, false)
+	if cow_button is Button:
+		cow_button.text = "买牛 - %d 金" % AnimalManagerScript.COW_PRICE
 
 
 func _update_farm_size_ui() -> void:
@@ -784,6 +928,27 @@ func _crop_swatch(crop_item_id: String) -> Color:
 		"corn":
 			return Color("#f1cf4a")
 	return Color("#d6513b")
+
+
+func _draw_animal_area() -> void:
+	draw_rect(Rect2(Vector2(840, 340), Vector2(170, 82)), Color("#b98555"))
+	draw_rect(Rect2(Vector2(858, 304), Vector2(56, 48)), Color("#8f5d3b"))
+	draw_rect(Rect2(Vector2(936, 304), Vector2(66, 54)), Color("#7f573d"))
+	draw_rect(Rect2(Vector2(858, 304), Vector2(56, 48)), Color("#5f4328"), false, 2.0)
+	draw_rect(Rect2(Vector2(936, 304), Vector2(66, 54)), Color("#5f4328"), false, 2.0)
+
+	for index in animal_manager.chickens:
+		var x: int = 864 + (index % 4) * 18
+		var y: int = 382 + int(index / 4) * 18
+		draw_circle(Vector2(x, y), 7.0, Color("#fff4c7"))
+		draw_circle(Vector2(x + 4, y - 3), 2.0, Color("#d6513b"))
+
+	for index in animal_manager.cows:
+		var x: int = 940 + index * 28
+		var y: int = 386
+		draw_rect(Rect2(Vector2(x, y - 8), Vector2(22, 14)), Color("#f5efe5"))
+		draw_circle(Vector2(x + 5, y - 2), 3.0, Color("#4f3a2e"))
+		draw_circle(Vector2(x + 16, y + 1), 3.0, Color("#4f3a2e"))
 
 
 func _check_milestones() -> void:
