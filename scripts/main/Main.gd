@@ -11,6 +11,7 @@ const StatsManagerScript := preload("res://scripts/stats/StatsManager.gd")
 const WeatherManagerScript := preload("res://scripts/weather/WeatherManager.gd")
 const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManager.gd")
 const JournalManagerScript := preload("res://scripts/journal/JournalManager.gd")
+const BriefingManagerScript := preload("res://scripts/briefing/BriefingManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -28,6 +29,7 @@ var stats_manager
 var weather_manager
 var milestone_manager
 var journal_manager
+var briefing_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
 var status_label: Label
@@ -48,6 +50,8 @@ var help_panel: PanelContainer
 var help_text_label: Label
 var journal_panel: PanelContainer
 var journal_value_label: Label
+var briefing_panel: PanelContainer
+var briefing_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -79,6 +83,7 @@ func _ready() -> void:
 	milestone_manager = MilestoneManagerScript.new()
 
 	journal_manager = JournalManagerScript.new()
+	briefing_manager = BriefingManagerScript.new()
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -108,6 +113,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.physical_keycode:
 		KEY_E, KEY_SPACE:
 			_interact_with_farm_at(player.facing_position())
+		KEY_R:
+			_toggle_briefing()
 		KEY_N:
 			_next_day()
 		KEY_M:
@@ -181,6 +188,8 @@ func _next_day() -> void:
 	if not rain_message.is_empty():
 		message = "%s\n%s" % [rain_message, message]
 	_record_journal("进入第 %d 天。%s" % [time_manager.day, weather_manager.describe()])
+	if briefing_panel != null:
+		briefing_panel.visible = true
 	_update_ui(message)
 	refresh_inventory_ui()
 	_update_target_hint()
@@ -313,6 +322,15 @@ func _toggle_journal() -> void:
 		_update_ui("日记关闭。")
 
 
+func _toggle_briefing() -> void:
+	briefing_panel.visible = not briefing_panel.visible
+	_update_briefing_ui()
+	if briefing_panel.visible:
+		_update_ui("晨间简报打开了。它只帮你回忆今天的情况。")
+	else:
+		_update_ui("晨间简报关闭。")
+
+
 func _build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -333,7 +351,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -358,6 +376,7 @@ func _build_ui() -> void:
 	_build_shop_panel(canvas)
 	_build_stats_panel(canvas)
 	_build_help_panel(canvas)
+	_build_briefing_panel(canvas)
 	_build_journal_panel(canvas)
 	_build_inventory_bar(canvas)
 
@@ -456,11 +475,32 @@ func _build_help_panel(canvas: CanvasLayer) -> void:
 		"常用按键：",
 		"WASD/方向键移动，E/空格交互，鼠标点击农田操作。",
 		"1-4 选择种子，B 打开商店，M 出售作物，O 交付可选订单。",
-		"I 查看图鉴，J 查看日记，F5 保存，F9 读档，H 打开/关闭这个帮助。",
+		"I 查看图鉴，J 查看日记，R 查看晨报，F5 保存，F9 读档，H 打开/关闭这个帮助。",
 		"",
 		"订单、图鉴和天气都只是让日子更有味道，不会惩罚你慢慢玩。"
 	])
 	margin.add_child(help_text_label)
+
+
+func _build_briefing_panel(canvas: CanvasLayer) -> void:
+	briefing_panel = PanelContainer.new()
+	briefing_panel.name = "BriefingPanel"
+	briefing_panel.position = Vector2(18, 188)
+	briefing_panel.custom_minimum_size = Vector2(286, 246)
+	briefing_panel.visible = true
+	canvas.add_child(briefing_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	briefing_panel.add_child(margin)
+
+	briefing_value_label = Label.new()
+	briefing_value_label.name = "BriefingValue"
+	briefing_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	margin.add_child(briefing_value_label)
 
 
 func _build_journal_panel(canvas: CanvasLayer) -> void:
@@ -584,6 +624,7 @@ func _update_ui(message: String) -> void:
 	_update_weather_ui()
 	_update_milestone_ui()
 	_update_journal_ui()
+	_update_briefing_ui()
 	_update_stats_ui()
 
 
@@ -608,6 +649,7 @@ func refresh_inventory_ui() -> void:
 	_update_weather_ui()
 	_update_milestone_ui()
 	_update_journal_ui()
+	_update_briefing_ui()
 	_update_stats_ui()
 
 
@@ -628,7 +670,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -660,6 +702,20 @@ func _update_journal_ui() -> void:
 	if journal_value_label == null or journal_manager == null:
 		return
 	journal_value_label.text = journal_manager.describe_recent()
+
+
+func _update_briefing_ui() -> void:
+	if briefing_value_label == null or briefing_manager == null:
+		return
+	var milestone_text := recent_milestone_message
+	if milestone_text.is_empty() and milestone_manager != null:
+		milestone_text = milestone_manager.describe()
+	briefing_value_label.text = briefing_manager.compose(
+		time_manager.day,
+		weather_manager.describe(),
+		order_manager.describe_order(inventory),
+		milestone_text
+	)
 
 
 func _update_stats_ui() -> void:
