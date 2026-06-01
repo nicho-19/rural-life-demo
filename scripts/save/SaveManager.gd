@@ -17,7 +17,8 @@ func save_game(
 	journal_manager = null,
 	animal_manager = null,
 	npc_manager = null,
-	fishing_manager = null
+	fishing_manager = null,
+	foraging_manager = null
 ) -> Dictionary:
 	var data := {
 		"version": SAVE_VERSION,
@@ -41,6 +42,8 @@ func save_game(
 		data["npcs"] = npc_manager.to_save_data()
 	if fishing_manager != null:
 		data["fishing"] = fishing_manager.to_save_data()
+	if foraging_manager != null:
+		data["foraging"] = foraging_manager.to_save_data()
 
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
@@ -99,7 +102,8 @@ func apply_save_data(
 	journal_manager = null,
 	animal_manager = null,
 	npc_manager = null,
-	fishing_manager = null
+	fishing_manager = null,
+	foraging_manager = null
 ) -> Dictionary:
 	inventory.load_save_data(_dictionary_from(data.get("inventory", {})))
 	farm_manager.load_save_data(_dictionary_from(data.get("farm", {})))
@@ -119,6 +123,8 @@ func apply_save_data(
 		npc_manager.load_save_data(_dictionary_from(data.get("npcs", {})))
 	if fishing_manager != null:
 		fishing_manager.load_save_data(_dictionary_from(data.get("fishing", {})))
+	if foraging_manager != null:
+		foraging_manager.load_save_data(_dictionary_from(data.get("foraging", {})))
 
 	return {
 		"success": true,

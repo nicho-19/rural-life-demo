@@ -51,3 +51,10 @@ Godot 4 农村经营游戏 demo。
 - Press `K` or the panel button to cast.
 - You can fish 3 times per day; rainy days can produce a rare fish.
 - Fish are sold together with other farm goods by pressing `M`.
+
+## Foraging Loop
+
+- Press `G` to open or close the foraging panel.
+- Press `Y` or the panel button to search the farm edge.
+- You can forage 2 times per day; seasons change what you find.
+- Forage items are sold together with other farm goods by pressing `M`.

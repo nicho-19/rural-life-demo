@@ -113,6 +113,24 @@
     "sell_price": 140,
     "stack": 99
   },
+  "wild_berry": {
+    "name": "Wild Berry",
+    "type": "forage",
+    "sell_price": 30,
+    "stack": 99
+  },
+  "mushroom": {
+    "name": "Mushroom",
+    "type": "forage",
+    "sell_price": 65,
+    "stack": 99
+  },
+  "wild_herb": {
+    "name": "Wild Herb",
+    "type": "forage",
+    "sell_price": 45,
+    "stack": 99
+  },
   "hoe": {
     "name": "锄头",
     "type": "tool",

@@ -17,13 +17,15 @@ const CraftingManagerScript := preload("res://scripts/crafting/CraftingManager.g
 const NpcRelationshipManagerScript := preload("res://scripts/npcs/NpcRelationshipManager.gd")
 const MainUiScript := preload("res://scripts/main/MainUi.gd")
 const FishingManagerScript := preload("res://scripts/fishing/FishingManager.gd")
+const ForagingManagerScript := preload("res://scripts/foraging/ForagingManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
 const ANIMAL_PRODUCT_ITEMS: Array[String] = ["egg", "milk"]
 const PROCESSED_ITEMS: Array[String] = ["dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese"]
 const FISH_ITEMS: Array[String] = ["pond_fish", "river_fish", "rare_fish"]
-const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk", "dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese", "pond_fish", "river_fish", "rare_fish"]
+const FORAGE_ITEMS: Array[String] = ["wild_berry", "mushroom", "wild_herb"]
+const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk", "dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese", "pond_fish", "river_fish", "rare_fish", "wild_berry", "mushroom", "wild_herb"]
 const GIFT_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk"]
 
 @onready var player: CharacterBody2D = $Player
@@ -44,6 +46,7 @@ var animal_manager
 var crafting_manager
 var npc_manager
 var fishing_manager
+var foraging_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
 var ui
@@ -76,6 +79,8 @@ var npc_panel: PanelContainer
 var npc_value_label: Label
 var fishing_panel: PanelContainer
 var fishing_value_label: Label
+var foraging_panel: PanelContainer
+var foraging_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -115,6 +120,8 @@ func _ready() -> void:
 	npc_manager.setup(data_manager.npcs)
 	fishing_manager = FishingManagerScript.new()
 	fishing_manager.start_day(time_manager.day)
+	foraging_manager = ForagingManagerScript.new()
+	foraging_manager.start_day(time_manager.day)
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -156,6 +163,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_toggle_fishing()
 		KEY_K:
 			_cast_fishing()
+		KEY_G:
+			_toggle_foraging()
+		KEY_Y:
+			_search_foraging()
 		KEY_X:
 			_buy_farm_expansion()
 		KEY_R:
@@ -200,6 +211,11 @@ func _draw() -> void:
 	if weather_manager.is_rainy():
 		for x in range(0, 1280, 26):
 			draw_line(Vector2(x, 96), Vector2(x - 8, 122), Color("#d7edf7"), 1.0)
+	draw_rect(Rect2(Vector2(72, 330), Vector2(160, 120)), Color("#4d8b45"))
+	for index in range(6):
+		var bush_position := Vector2(92 + index * 22, 352 + (index % 2) * 32)
+		draw_circle(bush_position, 18.0, Color("#35783b"))
+		draw_circle(bush_position + Vector2(7, -3), 4.0, Color("#c84c63"))
 	draw_circle(Vector2(1080, 430), 86.0, Color("#4e9ccf"))
 	draw_circle(Vector2(1080, 430), 86.0, Color("#2f6f94"), false, 3.0)
 	draw_rect(Rect2(Vector2(420, 210), Vector2(380, 280)), Color("#9b7043"))
@@ -233,6 +249,7 @@ func _next_day() -> void:
 	var animal_result: Dictionary = animal_manager.advance_day(inventory)
 	npc_manager.start_day(time_manager.day)
 	fishing_manager.start_day(time_manager.day)
+	foraging_manager.start_day(time_manager.day)
 	order_manager.start_day(time_manager.day)
 	weather_manager.start_day(time_manager.day)
 	var message := "睡了一觉。第 %d 天开始，新的可选订单来了；不做也没关系。" % time_manager.day
@@ -254,12 +271,14 @@ func _sell_all_crops() -> void:
 	var before_crops := _counts_for(CROP_ITEMS)
 	var before_processed := _counts_for(PROCESSED_ITEMS)
 	var before_fish := _counts_for(FISH_ITEMS)
+	var before_forage := _counts_for(FORAGE_ITEMS)
 	var money_before: int = inventory.money
 	var result: Dictionary = shop_manager.sell_all_items(inventory, SELLABLE_ITEMS)
 	if bool(result.get("success", false)):
 		_record_sold_changes(before_crops, inventory.money - money_before)
 		_record_processed_sold_changes(before_processed, inventory.money - money_before)
 		_record_fish_sold_changes(before_fish)
+		_record_forage_sold_changes(before_forage)
 	_check_milestones()
 	_record_journal(String(result.get("message", "")))
 	_update_ui(String(result.get("message", "没有可以出售的农产品。")))
@@ -353,7 +372,8 @@ func _save_game() -> void:
 		journal_manager,
 		animal_manager,
 		npc_manager,
-		fishing_manager
+		fishing_manager,
+		foraging_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -384,13 +404,15 @@ func _load_game_state() -> Dictionary:
 		journal_manager,
 		animal_manager,
 		npc_manager,
-		fishing_manager
+		fishing_manager,
+		foraging_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
 		selected_seed_item_id = saved_seed
 	npc_manager.start_day(time_manager.day)
 	fishing_manager.start_day(time_manager.day)
+	foraging_manager.start_day(time_manager.day)
 	return applied
 
 
@@ -516,6 +538,26 @@ func _cast_fishing() -> void:
 	_update_target_hint()
 
 
+func _toggle_foraging() -> void:
+	foraging_panel.visible = not foraging_panel.visible
+	_update_foraging_ui()
+	if foraging_panel.visible:
+		_update_ui("Foraging spot opened. Press Y or the search button to forage.")
+	else:
+		_update_ui("Foraging spot closed.")
+
+
+func _search_foraging() -> void:
+	var result: Dictionary = foraging_manager.search(inventory, time_manager.day, time_manager.season_name())
+	var message := String(result.get("message", "Foraging failed."))
+	if bool(result.get("success", false)):
+		_record_journal(message)
+	_update_ui(message)
+	refresh_inventory_ui()
+	_update_foraging_ui()
+	_update_target_hint()
+
+
 func _build_ui() -> void:
 	ui = MainUiScript.new()
 	ui.build(
@@ -527,7 +569,8 @@ func _build_ui() -> void:
 		AnimalManagerScript.FEED_ITEM_ID,
 		crafting_manager,
 		npc_manager,
-		fishing_manager
+		fishing_manager,
+		foraging_manager
 	)
 	_sync_ui_references()
 	return
@@ -619,6 +662,8 @@ func _sync_ui_references() -> void:
 	npc_value_label = ui.npc_value_label
 	fishing_panel = ui.fishing_panel
 	fishing_value_label = ui.fishing_value_label
+	foraging_panel = ui.foraging_panel
+	foraging_value_label = ui.foraging_value_label
 
 
 func _build_shop_panel(canvas: CanvasLayer) -> void:
@@ -1003,6 +1048,7 @@ func _update_ui(message: String) -> void:
 	_update_stats_ui()
 	_update_npc_ui()
 	_update_fishing_ui()
+	_update_foraging_ui()
 
 
 func refresh_inventory_ui() -> void:
@@ -1033,6 +1079,7 @@ func refresh_inventory_ui() -> void:
 	_update_stats_ui()
 	_update_npc_ui()
 	_update_fishing_ui()
+	_update_foraging_ui()
 
 
 func _update_shop_ui() -> void:
@@ -1157,6 +1204,18 @@ func _update_fishing_ui() -> void:
 	if cast_button is Button:
 		cast_button.text = "Cast (%d/%d)" % [fishing_manager.casts_today, FishingManagerScript.MAX_CASTS_PER_DAY]
 		cast_button.disabled = fishing_manager.casts_today >= FishingManagerScript.MAX_CASTS_PER_DAY
+
+
+func _update_foraging_ui() -> void:
+	if foraging_value_label == null or foraging_manager == null:
+		return
+	foraging_value_label.text = foraging_manager.describe(inventory)
+	if foraging_panel == null:
+		return
+	var search_button := foraging_panel.find_child("SearchForagingButton", true, false)
+	if search_button is Button:
+		search_button.text = "Search (%d/%d)" % [foraging_manager.searches_today, ForagingManagerScript.MAX_SEARCHES_PER_DAY]
+		search_button.disabled = foraging_manager.searches_today >= ForagingManagerScript.MAX_SEARCHES_PER_DAY
 
 
 func _update_farm_size_ui() -> void:
@@ -1291,6 +1350,14 @@ func _record_processed_sold_changes(before_processed: Dictionary, earned: int) -
 func _record_fish_sold_changes(before_fish: Dictionary) -> void:
 	for item_id in FISH_ITEMS:
 		var sold_count: int = int(before_fish.get(item_id, 0)) - inventory.count(item_id)
+		if sold_count > 0:
+			var sell_price := int(data_manager.items[item_id].get("sell_price", 0))
+			stats_manager.record_sold(item_id, sold_count, sell_price * sold_count)
+
+
+func _record_forage_sold_changes(before_forage: Dictionary) -> void:
+	for item_id in FORAGE_ITEMS:
+		var sold_count: int = int(before_forage.get(item_id, 0)) - inventory.count(item_id)
 		if sold_count > 0:
 			var sell_price := int(data_manager.items[item_id].get("sell_price", 0))
 			stats_manager.record_sold(item_id, sold_count, sell_price * sold_count)

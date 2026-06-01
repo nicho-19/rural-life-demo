@@ -1,6 +1,6 @@
 extends RefCounted
 
-const TARGET_HINT_TEXT := "WASD/Arrows move | E/Space interact | Mouse farm | H help | 1-4 seeds | B shop | C craft | L animals | V villagers | P fishing | K cast | F feed | I stats | J journal | R briefing | X expand | M sell | O order | F5 save | F9 load"
+const TARGET_HINT_TEXT := "WASD/Arrows move | E/Space interact | Mouse farm | H help | 1-4 seeds | B shop | C craft | L animals | V villagers | P fishing | K cast | G forage | Y search | F feed | I stats | J journal | R briefing | X expand | M sell | O order | F5 save | F9 load"
 
 var seed_items: Array[String] = []
 var crop_items: Array[String] = []
@@ -9,6 +9,7 @@ var feed_item_id := ""
 var crafting_manager
 var npc_manager
 var fishing_manager
+var foraging_manager
 
 var status_label: Label
 var hint_label: Label
@@ -39,6 +40,8 @@ var npc_panel: PanelContainer
 var npc_value_label: Label
 var fishing_panel: PanelContainer
 var fishing_value_label: Label
+var foraging_panel: PanelContainer
+var foraging_value_label: Label
 
 
 func build(
@@ -50,7 +53,8 @@ func build(
 	animal_feed_item_id: String,
 	crafting_manager_ref,
 	npc_manager_ref,
-	fishing_manager_ref
+	fishing_manager_ref,
+	foraging_manager_ref
 ) -> void:
 	seed_items = seed_item_ids.duplicate()
 	crop_items = crop_item_ids.duplicate()
@@ -59,6 +63,7 @@ func build(
 	crafting_manager = crafting_manager_ref
 	npc_manager = npc_manager_ref
 	fishing_manager = fishing_manager_ref
+	foraging_manager = foraging_manager_ref
 
 	var canvas := CanvasLayer.new()
 	parent.add_child(canvas)
@@ -70,6 +75,7 @@ func build(
 	_build_crafting_panel(canvas, parent)
 	_build_npc_panel(canvas, parent)
 	_build_fishing_panel(canvas, parent)
+	_build_foraging_panel(canvas, parent)
 	_build_help_panel(canvas)
 	_build_briefing_panel(canvas)
 	_build_journal_panel(canvas)
@@ -323,6 +329,37 @@ func _build_fishing_panel(canvas: CanvasLayer, action_owner: Object) -> void:
 	cast_button.focus_mode = Control.FOCUS_NONE
 	cast_button.pressed.connect(Callable(action_owner, "_cast_fishing"))
 	box.add_child(cast_button)
+
+
+func _build_foraging_panel(canvas: CanvasLayer, action_owner: Object) -> void:
+	foraging_panel = PanelContainer.new()
+	foraging_panel.name = "ForagingPanel"
+	foraging_panel.position = Vector2(940, 626)
+	foraging_panel.custom_minimum_size = Vector2(320, 126)
+	foraging_panel.visible = false
+	canvas.add_child(foraging_panel)
+
+	var margin := _margin(12, 10, 12, 10)
+	foraging_panel.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "Foraging"
+	box.add_child(title)
+
+	foraging_value_label = Label.new()
+	foraging_value_label.name = "ForagingValue"
+	foraging_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(foraging_value_label)
+
+	var search_button := Button.new()
+	search_button.name = "SearchForagingButton"
+	search_button.focus_mode = Control.FOCUS_NONE
+	search_button.pressed.connect(Callable(action_owner, "_search_foraging"))
+	box.add_child(search_button)
 
 
 func _build_help_panel(canvas: CanvasLayer) -> void:
