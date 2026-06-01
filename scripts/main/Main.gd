@@ -13,11 +13,13 @@ const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManag
 const JournalManagerScript := preload("res://scripts/journal/JournalManager.gd")
 const BriefingManagerScript := preload("res://scripts/briefing/BriefingManager.gd")
 const AnimalManagerScript := preload("res://scripts/animals/AnimalManager.gd")
+const NpcRelationshipManagerScript := preload("res://scripts/npcs/NpcRelationshipManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
 const ANIMAL_PRODUCT_ITEMS: Array[String] = ["egg", "milk"]
 const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk"]
+const GIFT_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk"]
 
 @onready var player: CharacterBody2D = $Player
 
@@ -34,6 +36,7 @@ var milestone_manager
 var journal_manager
 var briefing_manager
 var animal_manager
+var npc_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
 var status_label: Label
@@ -59,6 +62,8 @@ var briefing_panel: PanelContainer
 var briefing_value_label: Label
 var animal_panel: PanelContainer
 var animal_value_label: Label
+var npc_panel: PanelContainer
+var npc_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -92,6 +97,8 @@ func _ready() -> void:
 	journal_manager = JournalManagerScript.new()
 	briefing_manager = BriefingManagerScript.new()
 	animal_manager = AnimalManagerScript.new()
+	npc_manager = NpcRelationshipManagerScript.new()
+	npc_manager.setup(data_manager.npcs)
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -125,6 +132,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_feed_animals()
 		KEY_L:
 			_toggle_animals()
+		KEY_V:
+			_toggle_npcs()
 		KEY_X:
 			_buy_farm_expansion()
 		KEY_R:
@@ -198,6 +207,7 @@ func _next_day() -> void:
 	time_manager.next_day()
 	farm_manager.advance_day()
 	var animal_result: Dictionary = animal_manager.advance_day(inventory)
+	npc_manager.start_day(time_manager.day)
 	order_manager.start_day(time_manager.day)
 	weather_manager.start_day(time_manager.day)
 	var message := "睡了一觉。第 %d 天开始，新的可选订单来了；不做也没关系。" % time_manager.day
@@ -302,7 +312,8 @@ func _save_game() -> void:
 		weather_manager,
 		milestone_manager,
 		journal_manager,
-		animal_manager
+		animal_manager,
+		npc_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -331,11 +342,13 @@ func _load_game_state() -> Dictionary:
 		weather_manager,
 		milestone_manager,
 		journal_manager,
-		animal_manager
+		animal_manager,
+		npc_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
 		selected_seed_item_id = saved_seed
+	npc_manager.start_day(time_manager.day)
 	return applied
 
 
@@ -412,6 +425,26 @@ func _toggle_animals() -> void:
 		_update_ui("动物棚关闭。")
 
 
+func _toggle_npcs() -> void:
+	npc_panel.visible = not npc_panel.visible
+	_update_npc_ui()
+	if npc_panel.visible:
+		_update_ui("村民关系打开了。可以给每位村民每天送一次礼物。")
+	else:
+		_update_ui("村民关系关闭。")
+
+
+func _give_npc_gift(npc_id: String, item_id: String) -> void:
+	var result: Dictionary = npc_manager.give_gift(npc_id, item_id, inventory, time_manager.day)
+	var message := String(result.get("message", "送礼失败。"))
+	if bool(result.get("success", false)):
+		_record_journal(message)
+	_update_ui(message)
+	refresh_inventory_ui()
+	_update_npc_ui()
+	_update_target_hint()
+
+
 func _build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -432,7 +465,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | V村民 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -462,6 +495,7 @@ func _build_ui() -> void:
 	_build_shop_panel(canvas)
 	_build_stats_panel(canvas)
 	_build_animal_panel(canvas)
+	_build_npc_panel(canvas)
 	_build_help_panel(canvas)
 	_build_briefing_panel(canvas)
 	_build_journal_panel(canvas)
@@ -587,6 +621,46 @@ func _build_animal_panel(canvas: CanvasLayer) -> void:
 	feed_button.text = "喂全部动物"
 	feed_button.pressed.connect(_feed_animals)
 	box.add_child(feed_button)
+
+
+func _build_npc_panel(canvas: CanvasLayer) -> void:
+	npc_panel = PanelContainer.new()
+	npc_panel.name = "NpcPanel"
+	npc_panel.position = Vector2(570, 486)
+	npc_panel.custom_minimum_size = Vector2(690, 106)
+	npc_panel.visible = false
+	canvas.add_child(npc_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	npc_panel.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "村民关系"
+	box.add_child(title)
+
+	npc_value_label = Label.new()
+	npc_value_label.name = "NpcValue"
+	npc_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(npc_value_label)
+
+	for npc_id in npc_manager.npcs.keys():
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		box.add_child(row)
+		for item_id in GIFT_ITEMS:
+			var button := Button.new()
+			button.name = "%s%sGiftButton" % [String(npc_id).to_pascal_case(), item_id.to_pascal_case()]
+			button.focus_mode = Control.FOCUS_NONE
+			button.pressed.connect(_give_npc_gift.bind(String(npc_id), item_id))
+			row.add_child(button)
 
 
 func _build_help_panel(canvas: CanvasLayer) -> void:
@@ -770,6 +844,7 @@ func _update_ui(message: String) -> void:
 	_update_farm_size_ui()
 	_update_animal_ui()
 	_update_stats_ui()
+	_update_npc_ui()
 
 
 func refresh_inventory_ui() -> void:
@@ -797,6 +872,7 @@ func refresh_inventory_ui() -> void:
 	_update_farm_size_ui()
 	_update_animal_ui()
 	_update_stats_ui()
+	_update_npc_ui()
 
 
 func _update_shop_ui() -> void:
@@ -820,7 +896,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | V村民 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -865,7 +941,8 @@ func _update_briefing_ui() -> void:
 		weather_manager.describe(),
 		order_manager.describe_order(inventory),
 		milestone_text,
-		animal_manager.briefing_text()
+		animal_manager.briefing_text(),
+		npc_manager.briefing_text()
 	)
 
 
@@ -879,6 +956,20 @@ func _update_animal_ui() -> void:
 	var cow_button := animal_panel.find_child("BuyCowButton", true, false)
 	if cow_button is Button:
 		cow_button.text = "买牛 - %d 金" % AnimalManagerScript.COW_PRICE
+
+
+func _update_npc_ui() -> void:
+	if npc_value_label == null or npc_manager == null:
+		return
+	npc_value_label.text = npc_manager.describe()
+	if npc_panel == null:
+		return
+	for npc_id in npc_manager.npcs.keys():
+		for item_id in GIFT_ITEMS:
+			var button := npc_panel.find_child("%s%sGiftButton" % [String(npc_id).to_pascal_case(), item_id.to_pascal_case()], true, false)
+			if button is Button:
+				button.text = npc_manager.gift_button_text(String(npc_id), item_id, _item_name(item_id), inventory)
+				button.disabled = npc_manager.was_gifted_today(String(npc_id), time_manager.day) or inventory.count(item_id) <= 0
 
 
 func _update_farm_size_ui() -> void:
