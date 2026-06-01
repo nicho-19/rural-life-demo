@@ -37,6 +37,7 @@ var hint_label: Label
 var order_label: Label
 var weather_label: Label
 var milestone_label: Label
+var farm_size_label: Label
 var money_value_label: Label
 var seed_value_labels: Dictionary = {}
 var crop_value_labels: Dictionary = {}
@@ -113,6 +114,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.physical_keycode:
 		KEY_E, KEY_SPACE:
 			_interact_with_farm_at(player.facing_position())
+		KEY_X:
+			_buy_farm_expansion()
 		KEY_R:
 			_toggle_briefing()
 		KEY_N:
@@ -216,6 +219,15 @@ func _deliver_order() -> void:
 	_check_milestones()
 	_record_journal(String(result.get("message", "")))
 	_update_ui(String(result.get("message", "订单交付失败。")))
+	refresh_inventory_ui()
+	_update_target_hint()
+
+
+func _buy_farm_expansion() -> void:
+	var result: Dictionary = farm_manager.buy_expansion(inventory)
+	if bool(result.get("success", false)):
+		_record_journal(String(result.get("message", "")))
+	_update_ui(String(result.get("message", "扩建失败。")))
 	refresh_inventory_ui()
 	_update_target_hint()
 
@@ -337,7 +349,7 @@ func _build_ui() -> void:
 
 	var panel := PanelContainer.new()
 	panel.position = Vector2(18, 18)
-	panel.custom_minimum_size = Vector2(560, 158)
+	panel.custom_minimum_size = Vector2(560, 178)
 	canvas.add_child(panel)
 
 	var margin := MarginContainer.new()
@@ -351,7 +363,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -368,6 +380,11 @@ func _build_ui() -> void:
 	milestone_label.name = "MilestoneValue"
 	milestone_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(milestone_label)
+
+	farm_size_label = Label.new()
+	farm_size_label.name = "FarmSizeValue"
+	farm_size_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(farm_size_label)
 
 	status_label = Label.new()
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -475,7 +492,7 @@ func _build_help_panel(canvas: CanvasLayer) -> void:
 		"常用按键：",
 		"WASD/方向键移动，E/空格交互，鼠标点击农田操作。",
 		"1-4 选择种子，B 打开商店，M 出售作物，O 交付可选订单。",
-		"I 查看图鉴，J 查看日记，R 查看晨报，F5 保存，F9 读档，H 打开/关闭这个帮助。",
+		"I 查看图鉴，J 查看日记，R 查看晨报，X 扩建农田，F5 保存，F9 读档，H 打开/关闭这个帮助。",
 		"",
 		"订单、图鉴和天气都只是让日子更有味道，不会惩罚你慢慢玩。"
 	])
@@ -625,6 +642,7 @@ func _update_ui(message: String) -> void:
 	_update_milestone_ui()
 	_update_journal_ui()
 	_update_briefing_ui()
+	_update_farm_size_ui()
 	_update_stats_ui()
 
 
@@ -650,6 +668,7 @@ func refresh_inventory_ui() -> void:
 	_update_milestone_ui()
 	_update_journal_ui()
 	_update_briefing_ui()
+	_update_farm_size_ui()
 	_update_stats_ui()
 
 
@@ -670,7 +689,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -716,6 +735,19 @@ func _update_briefing_ui() -> void:
 		order_manager.describe_order(inventory),
 		milestone_text
 	)
+
+
+func _update_farm_size_ui() -> void:
+	if farm_size_label == null or farm_manager == null:
+		return
+	if farm_manager.width >= FarmManagerScript.MAX_WIDTH and farm_manager.height >= FarmManagerScript.MAX_HEIGHT:
+		farm_size_label.text = "农田：%d x %d | 已达最大范围" % [farm_manager.width, farm_manager.height]
+	else:
+		farm_size_label.text = "农田：%d x %d | 按 X 扩建 %d 金" % [
+			farm_manager.width,
+			farm_manager.height,
+			FarmManagerScript.EXPAND_COST,
+		]
 
 
 func _update_stats_ui() -> void:

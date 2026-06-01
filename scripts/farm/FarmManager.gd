@@ -3,8 +3,13 @@ class_name FarmManager
 
 const CELL_SIZE := 32
 const FARM_ORIGIN := Vector2(512, 280)
-const FARM_WIDTH := 8
-const FARM_HEIGHT := 5
+const BASE_WIDTH := 8
+const BASE_HEIGHT := 5
+const MAX_WIDTH := 10
+const MAX_HEIGHT := 6
+const FARM_WIDTH := BASE_WIDTH
+const FARM_HEIGHT := BASE_HEIGHT
+const EXPAND_COST := 250
 
 enum TileState {
 	EMPTY,
@@ -16,16 +21,14 @@ enum TileState {
 
 var crops: Dictionary = {}
 var tiles: Dictionary = {}
+var width := BASE_WIDTH
+var height := BASE_HEIGHT
 
 func setup(crop_data: Dictionary) -> void:
 	crops = crop_data
-	for y in FARM_HEIGHT:
-		for x in FARM_WIDTH:
-			tiles[Vector2i(x, y)] = {
-				"state": TileState.EMPTY,
-				"crop_id": "",
-				"growth": 0,
-			}
+	width = BASE_WIDTH
+	height = BASE_HEIGHT
+	_initialize_tiles()
 
 
 func interact_at(world_position: Vector2, inventory, seed_item_id: String = "turnip_seed") -> String:
@@ -107,6 +110,30 @@ func water_all_planted() -> int:
 	return watered_count
 
 
+func buy_expansion(inventory) -> Dictionary:
+	if width >= MAX_WIDTH and height >= MAX_HEIGHT:
+		return {
+			"success": false,
+			"message": "农田已经扩建到当前 demo 的最大范围了。",
+		}
+	if inventory.money < EXPAND_COST:
+		return {
+			"success": false,
+			"message": "扩建农田需要 %d 金，先多卖一些作物吧。" % EXPAND_COST,
+		}
+
+	inventory.money -= EXPAND_COST
+	if width < MAX_WIDTH:
+		width += 1
+	else:
+		height += 1
+	_add_missing_tiles()
+	return {
+		"success": true,
+		"message": "扩建完成。现在农田是 %d x %d，可以种更多作物了。" % [width, height],
+	}
+
+
 func crop_id_for_seed(seed_item_id: String) -> String:
 	for crop_id in crops.keys():
 		var crop: Dictionary = crops[crop_id]
@@ -134,8 +161,8 @@ func cell_to_rect(cell: Vector2i) -> Rect2:
 
 
 func draw_farm(canvas: CanvasItem, highlighted_cell = null) -> void:
-	for y in FARM_HEIGHT:
-		for x in FARM_WIDTH:
+	for y in height:
+		for x in width:
 			var cell := Vector2i(x, y)
 			var tile: Dictionary = tiles[cell]
 			var rect := cell_to_rect(cell)
@@ -220,17 +247,16 @@ func to_save_data() -> Dictionary:
 		})
 
 	return {
+		"width": width,
+		"height": height,
 		"tiles": saved_tiles,
 	}
 
 
 func load_save_data(data: Dictionary) -> void:
-	for cell in tiles.keys():
-		tiles[cell] = {
-			"state": TileState.EMPTY,
-			"crop_id": "",
-			"growth": 0,
-		}
+	width = min(MAX_WIDTH, max(BASE_WIDTH, int(data.get("width", BASE_WIDTH))))
+	height = min(MAX_HEIGHT, max(BASE_HEIGHT, int(data.get("height", BASE_HEIGHT))))
+	_initialize_tiles()
 
 	var saved_tiles = data.get("tiles", [])
 	if not saved_tiles is Array:
@@ -247,3 +273,21 @@ func load_save_data(data: Dictionary) -> void:
 			"crop_id": String(saved_tile.get("crop_id", "")),
 			"growth": int(saved_tile.get("growth", 0)),
 		}
+
+
+func _initialize_tiles() -> void:
+	tiles.clear()
+	_add_missing_tiles()
+
+
+func _add_missing_tiles() -> void:
+	for y in height:
+		for x in width:
+			var cell := Vector2i(x, y)
+			if tiles.has(cell):
+				continue
+			tiles[cell] = {
+				"state": TileState.EMPTY,
+				"crop_id": "",
+				"growth": 0,
+			}

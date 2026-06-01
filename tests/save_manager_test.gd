@@ -17,7 +17,7 @@ func _init() -> void:
 
 	var inventory = InventoryScript.new()
 	inventory.setup_starter_items()
-	inventory.money = 275
+	inventory.money = 525
 	inventory.add_item("potato_seed", 3)
 	inventory.add_item("cabbage", 2)
 
@@ -28,6 +28,10 @@ func _init() -> void:
 
 	var farm_manager = FarmManagerScript.new()
 	farm_manager.setup(data_manager.crops)
+	var expansion_result: Dictionary = farm_manager.buy_expansion(inventory)
+	if not bool(expansion_result.get("success", false)):
+		_fail("save_manager_test should be able to expand the farm before saving.")
+		return
 	var farm_position := Vector2(528, 296)
 	farm_manager.interact_at(farm_position, inventory, "potato_seed")
 	farm_manager.interact_at(farm_position, inventory, "potato_seed")
@@ -114,6 +118,9 @@ func _init() -> void:
 	var tile: Dictionary = farm_manager.tiles[Vector2i(0, 0)]
 	if String(tile.get("crop_id", "")) != "potato" or int(tile.get("state", -1)) != FarmManagerScript.TileState.PLANTED:
 		_fail("Loaded save should restore farm tile crop and state.")
+		return
+	if farm_manager.width != 9 or farm_manager.height != 5:
+		_fail("Loaded save should restore farm expansion size.")
 		return
 	if String(applied.get("selected_seed_item_id", "")) != "potato_seed":
 		_fail("Loaded save should return the selected seed item.")
