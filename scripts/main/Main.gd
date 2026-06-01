@@ -15,6 +15,7 @@ const BriefingManagerScript := preload("res://scripts/briefing/BriefingManager.g
 const AnimalManagerScript := preload("res://scripts/animals/AnimalManager.gd")
 const CraftingManagerScript := preload("res://scripts/crafting/CraftingManager.gd")
 const NpcRelationshipManagerScript := preload("res://scripts/npcs/NpcRelationshipManager.gd")
+const MainUiScript := preload("res://scripts/main/MainUi.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -42,6 +43,7 @@ var crafting_manager
 var npc_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
+var ui
 var status_label: Label
 var hint_label: Label
 var order_label: Label
@@ -476,6 +478,20 @@ func _give_npc_gift(npc_id: String, item_id: String) -> void:
 
 
 func _build_ui() -> void:
+	ui = MainUiScript.new()
+	ui.build(
+		self,
+		data_manager,
+		SEED_ITEMS,
+		CROP_ITEMS,
+		GIFT_ITEMS,
+		AnimalManagerScript.FEED_ITEM_ID,
+		crafting_manager,
+		npc_manager
+	)
+	_sync_ui_references()
+	return
+
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
 
@@ -531,6 +547,36 @@ func _build_ui() -> void:
 	_build_briefing_panel(canvas)
 	_build_journal_panel(canvas)
 	_build_inventory_bar(canvas)
+
+
+func _sync_ui_references() -> void:
+	status_label = ui.status_label
+	hint_label = ui.hint_label
+	order_label = ui.order_label
+	weather_label = ui.weather_label
+	milestone_label = ui.milestone_label
+	farm_size_label = ui.farm_size_label
+	money_value_label = ui.money_value_label
+	seed_value_labels = ui.seed_value_labels
+	crop_value_labels = ui.crop_value_labels
+	seed_slot_buttons = ui.seed_slot_buttons
+	shop_panel = ui.shop_panel
+	shop_money_label = ui.shop_money_label
+	shop_message_label = ui.shop_message_label
+	stats_panel = ui.stats_panel
+	stats_value_label = ui.stats_value_label
+	help_panel = ui.help_panel
+	help_text_label = ui.help_text_label
+	journal_panel = ui.journal_panel
+	journal_value_label = ui.journal_value_label
+	briefing_panel = ui.briefing_panel
+	briefing_value_label = ui.briefing_value_label
+	animal_panel = ui.animal_panel
+	animal_value_label = ui.animal_value_label
+	crafting_panel = ui.crafting_panel
+	crafting_value_label = ui.crafting_value_label
+	npc_panel = ui.npc_panel
+	npc_value_label = ui.npc_value_label
 
 
 func _build_shop_panel(canvas: CanvasLayer) -> void:
