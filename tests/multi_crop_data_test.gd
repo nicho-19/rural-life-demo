@@ -7,10 +7,10 @@ func _init() -> void:
 	data_manager.load_all()
 
 	var expected_crops := {
-		"turnip": {"seed": "turnip_seed", "price": 20, "sell": 60, "days": 3},
-		"potato": {"seed": "potato_seed", "price": 30, "sell": 90, "days": 4},
-		"cabbage": {"seed": "cabbage_seed", "price": 40, "sell": 130, "days": 5},
-		"corn": {"seed": "corn_seed", "price": 50, "sell": 160, "days": 6},
+		"turnip": {"seed": "turnip_seed", "price": 20, "sell": 60, "days": 3, "season": ["spring", "summer"]},
+		"potato": {"seed": "potato_seed", "price": 30, "sell": 90, "days": 4, "season": ["spring", "autumn"]},
+		"cabbage": {"seed": "cabbage_seed", "price": 40, "sell": 130, "days": 5, "season": ["spring", "autumn"]},
+		"corn": {"seed": "corn_seed", "price": 50, "sell": 160, "days": 6, "season": ["summer"]},
 	}
 
 	for crop_id in expected_crops.keys():
@@ -29,6 +29,10 @@ func _init() -> void:
 			return
 		if int(data_manager.crops[crop_id].get("grow_days", 0)) != int(expected["days"]):
 			_fail("Grow days mismatch for %s" % crop_id)
+			return
+		var seasons: Array = data_manager.crops[crop_id].get("season", [])
+		if seasons != expected["season"]:
+			_fail("Season list mismatch for %s" % crop_id)
 			return
 
 	print("PASS multi_crop_data_test")

@@ -178,7 +178,7 @@ func _draw() -> void:
 func _interact_with_farm_at(world_position: Vector2) -> void:
 	var before_seeds := _counts_for(SEED_ITEMS)
 	var before_crops := _counts_for(CROP_ITEMS)
-	var result: String = farm_manager.interact_at(world_position, inventory, selected_seed_item_id)
+	var result: String = farm_manager.interact_at(world_position, inventory, selected_seed_item_id, time_manager.current_season())
 	_record_farm_changes(before_seeds, before_crops)
 	_check_milestones()
 	_record_journal(result)
@@ -760,6 +760,7 @@ func _update_ui(message: String) -> void:
 		_item_name(selected_seed_item_id),
 		message,
 	]
+	status_label.text = "%s  %s" % [_season_status_text(), status_label.text]
 	if shop_message_label != null:
 		shop_message_label.text = message
 	_update_order_ui()
@@ -819,7 +820,7 @@ func _update_target_hint() -> void:
 	if farm_manager == null or player == null or hint_label == null:
 		return
 
-	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
+	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id, time_manager.current_season())
 	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
@@ -865,7 +866,8 @@ func _update_briefing_ui() -> void:
 		weather_manager.describe(),
 		order_manager.describe_order(inventory),
 		milestone_text,
-		animal_manager.briefing_text()
+		animal_manager.briefing_text(),
+		_season_status_text()
 	)
 
 
@@ -903,6 +905,14 @@ func _update_stats_ui() -> void:
 func _item_name(item_id: String) -> String:
 	var item: Dictionary = data_manager.items.get(item_id, {})
 	return String(item.get("name", item_id))
+
+
+func _season_status_text() -> String:
+	return "%s %d/%d" % [
+		time_manager.season_name(),
+		time_manager.season_day(),
+		TimeManagerScript.DAYS_PER_SEASON,
+	]
 
 
 func _seed_value_name(seed_item_id: String) -> String:

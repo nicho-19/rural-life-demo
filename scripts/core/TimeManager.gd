@@ -1,6 +1,15 @@
 extends Node
 class_name TimeManager
 
+const SEASONS: Array[String] = ["spring", "summer", "autumn", "winter"]
+const SEASON_NAMES := {
+	"spring": "Spring",
+	"summer": "Summer",
+	"autumn": "Autumn",
+	"winter": "Winter",
+}
+const DAYS_PER_SEASON := 7
+
 var day := 1
 var hour := 6
 var minute := 0
@@ -18,6 +27,19 @@ func next_day() -> void:
 	hour = 6
 	minute = 0
 	_minute_accumulator = 0.0
+
+
+func current_season() -> String:
+	var season_index := int((max(1, day) - 1) / DAYS_PER_SEASON) % SEASONS.size()
+	return SEASONS[season_index]
+
+
+func season_day() -> int:
+	return ((max(1, day) - 1) % DAYS_PER_SEASON) + 1
+
+
+func season_name() -> String:
+	return String(SEASON_NAMES.get(current_season(), current_season().capitalize()))
 
 
 func _add_minute() -> void:
