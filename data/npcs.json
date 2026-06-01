@@ -1,0 +1,23 @@
+{
+  "mayor_lin": {
+    "name": "林村长",
+    "loved": ["turnip"],
+    "liked": ["potato", "cabbage"],
+    "disliked": ["milk"],
+    "hint": "喜欢清爽的地里收成，尤其爱萝卜；不太习惯牛奶。"
+  },
+  "meizi": {
+    "name": "梅子",
+    "loved": ["egg"],
+    "liked": ["corn", "milk"],
+    "disliked": ["potato"],
+    "hint": "喜欢鸡蛋和甜玉米，土豆对她有点普通过头。"
+  },
+  "achuan": {
+    "name": "阿川",
+    "loved": ["corn"],
+    "liked": ["turnip", "milk"],
+    "disliked": ["cabbage"],
+    "hint": "喜欢能带去河边的玉米和牛奶，不太爱白菜。"
+  }
+}
