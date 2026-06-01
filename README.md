@@ -58,3 +58,10 @@ Godot 4 农村经营游戏 demo。
 - Press `Y` or the panel button to search the farm edge.
 - You can forage 2 times per day; seasons change what you find.
 - Forage items are sold together with other farm goods by pressing `M`.
+
+## Apiary Loop
+
+- Press `U` to open or close the apiary panel.
+- Buy beehives for 300 gold each, up to 3 hives.
+- Beehives produce honey after sleeping outside winter.
+- Honey is sold together with other farm goods by pressing `M`.

@@ -131,6 +131,12 @@
     "sell_price": 45,
     "stack": 99
   },
+  "honey": {
+    "name": "Honey",
+    "type": "apiary_product",
+    "sell_price": 85,
+    "stack": 99
+  },
   "hoe": {
     "name": "锄头",
     "type": "tool",

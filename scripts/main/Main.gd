@@ -18,6 +18,7 @@ const NpcRelationshipManagerScript := preload("res://scripts/npcs/NpcRelationshi
 const MainUiScript := preload("res://scripts/main/MainUi.gd")
 const FishingManagerScript := preload("res://scripts/fishing/FishingManager.gd")
 const ForagingManagerScript := preload("res://scripts/foraging/ForagingManager.gd")
+const ApiaryManagerScript := preload("res://scripts/apiary/ApiaryManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
@@ -25,7 +26,8 @@ const ANIMAL_PRODUCT_ITEMS: Array[String] = ["egg", "milk"]
 const PROCESSED_ITEMS: Array[String] = ["dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese"]
 const FISH_ITEMS: Array[String] = ["pond_fish", "river_fish", "rare_fish"]
 const FORAGE_ITEMS: Array[String] = ["wild_berry", "mushroom", "wild_herb"]
-const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk", "dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese", "pond_fish", "river_fish", "rare_fish", "wild_berry", "mushroom", "wild_herb"]
+const APIARY_ITEMS: Array[String] = ["honey"]
+const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk", "dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese", "pond_fish", "river_fish", "rare_fish", "wild_berry", "mushroom", "wild_herb", "honey"]
 const GIFT_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk"]
 
 @onready var player: CharacterBody2D = $Player
@@ -47,6 +49,7 @@ var crafting_manager
 var npc_manager
 var fishing_manager
 var foraging_manager
+var apiary_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
 var ui
@@ -81,6 +84,8 @@ var fishing_panel: PanelContainer
 var fishing_value_label: Label
 var foraging_panel: PanelContainer
 var foraging_value_label: Label
+var apiary_panel: PanelContainer
+var apiary_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -122,6 +127,7 @@ func _ready() -> void:
 	fishing_manager.start_day(time_manager.day)
 	foraging_manager = ForagingManagerScript.new()
 	foraging_manager.start_day(time_manager.day)
+	apiary_manager = ApiaryManagerScript.new()
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -167,6 +173,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_toggle_foraging()
 		KEY_Y:
 			_search_foraging()
+		KEY_U:
+			_toggle_apiary()
 		KEY_X:
 			_buy_farm_expansion()
 		KEY_R:
@@ -216,6 +224,10 @@ func _draw() -> void:
 		var bush_position := Vector2(92 + index * 22, 352 + (index % 2) * 32)
 		draw_circle(bush_position, 18.0, Color("#35783b"))
 		draw_circle(bush_position + Vector2(7, -3), 4.0, Color("#c84c63"))
+	for index in apiary_manager.beehives:
+		var hive_position := Vector2(842 + index * 28, 450)
+		draw_rect(Rect2(hive_position, Vector2(22, 30)), Color("#d6a33c"))
+		draw_rect(Rect2(hive_position + Vector2(3, 7), Vector2(16, 5)), Color("#7a4e20"))
 	draw_circle(Vector2(1080, 430), 86.0, Color("#4e9ccf"))
 	draw_circle(Vector2(1080, 430), 86.0, Color("#2f6f94"), false, 3.0)
 	draw_rect(Rect2(Vector2(420, 210), Vector2(380, 280)), Color("#9b7043"))
@@ -247,6 +259,7 @@ func _next_day() -> void:
 	time_manager.next_day()
 	farm_manager.advance_day()
 	var animal_result: Dictionary = animal_manager.advance_day(inventory)
+	var apiary_result: Dictionary = apiary_manager.advance_day(inventory, time_manager.current_season())
 	npc_manager.start_day(time_manager.day)
 	fishing_manager.start_day(time_manager.day)
 	foraging_manager.start_day(time_manager.day)
@@ -257,6 +270,10 @@ func _next_day() -> void:
 		var animal_message := String(animal_result.get("message", ""))
 		message = "%s\n%s" % [animal_message, message]
 		_record_journal(animal_message)
+	if int(apiary_result.get("honey", 0)) > 0:
+		var apiary_message := String(apiary_result.get("message", ""))
+		message = "%s\n%s" % [apiary_message, message]
+		_record_journal(apiary_message)
 	if not rain_message.is_empty():
 		message = "%s\n%s" % [rain_message, message]
 	_record_journal("进入第 %d 天。%s" % [time_manager.day, weather_manager.describe()])
@@ -272,6 +289,7 @@ func _sell_all_crops() -> void:
 	var before_processed := _counts_for(PROCESSED_ITEMS)
 	var before_fish := _counts_for(FISH_ITEMS)
 	var before_forage := _counts_for(FORAGE_ITEMS)
+	var before_apiary := _counts_for(APIARY_ITEMS)
 	var money_before: int = inventory.money
 	var result: Dictionary = shop_manager.sell_all_items(inventory, SELLABLE_ITEMS)
 	if bool(result.get("success", false)):
@@ -279,6 +297,7 @@ func _sell_all_crops() -> void:
 		_record_processed_sold_changes(before_processed, inventory.money - money_before)
 		_record_fish_sold_changes(before_fish)
 		_record_forage_sold_changes(before_forage)
+		_record_apiary_sold_changes(before_apiary)
 	_check_milestones()
 	_record_journal(String(result.get("message", "")))
 	_update_ui(String(result.get("message", "没有可以出售的农产品。")))
@@ -348,6 +367,16 @@ func _feed_animals() -> void:
 	_update_target_hint()
 
 
+func _buy_beehive() -> void:
+	var result: Dictionary = apiary_manager.buy_beehive(inventory)
+	if bool(result.get("success", false)):
+		_record_journal(String(result.get("message", "")))
+	_update_ui(String(result.get("message", "Buying beehive failed.")))
+	refresh_inventory_ui()
+	_update_apiary_ui()
+	_update_target_hint()
+
+
 func _craft_recipe(recipe_id: String) -> void:
 	var result: Dictionary = crafting_manager.craft(inventory, recipe_id)
 	if bool(result.get("success", false)):
@@ -373,7 +402,8 @@ func _save_game() -> void:
 		animal_manager,
 		npc_manager,
 		fishing_manager,
-		foraging_manager
+		foraging_manager,
+		apiary_manager
 	)
 	_update_ui(String(result.get("message", "存档失败。")))
 	refresh_inventory_ui()
@@ -405,7 +435,8 @@ func _load_game_state() -> Dictionary:
 		animal_manager,
 		npc_manager,
 		fishing_manager,
-		foraging_manager
+		foraging_manager,
+		apiary_manager
 	)
 	var saved_seed := String(applied.get("selected_seed_item_id", selected_seed_item_id))
 	if SEED_ITEMS.has(saved_seed):
@@ -558,6 +589,15 @@ func _search_foraging() -> void:
 	_update_target_hint()
 
 
+func _toggle_apiary() -> void:
+	apiary_panel.visible = not apiary_panel.visible
+	_update_apiary_ui()
+	if apiary_panel.visible:
+		_update_ui("Apiary opened. Buy beehives to produce honey outside winter.")
+	else:
+		_update_ui("Apiary closed.")
+
+
 func _build_ui() -> void:
 	ui = MainUiScript.new()
 	ui.build(
@@ -570,7 +610,8 @@ func _build_ui() -> void:
 		crafting_manager,
 		npc_manager,
 		fishing_manager,
-		foraging_manager
+		foraging_manager,
+		apiary_manager
 	)
 	_sync_ui_references()
 	return
@@ -664,6 +705,8 @@ func _sync_ui_references() -> void:
 	fishing_value_label = ui.fishing_value_label
 	foraging_panel = ui.foraging_panel
 	foraging_value_label = ui.foraging_value_label
+	apiary_panel = ui.apiary_panel
+	apiary_value_label = ui.apiary_value_label
 
 
 func _build_shop_panel(canvas: CanvasLayer) -> void:
@@ -1049,6 +1092,7 @@ func _update_ui(message: String) -> void:
 	_update_npc_ui()
 	_update_fishing_ui()
 	_update_foraging_ui()
+	_update_apiary_ui()
 
 
 func refresh_inventory_ui() -> void:
@@ -1080,6 +1124,7 @@ func refresh_inventory_ui() -> void:
 	_update_npc_ui()
 	_update_fishing_ui()
 	_update_foraging_ui()
+	_update_apiary_ui()
 
 
 func _update_shop_ui() -> void:
@@ -1151,7 +1196,8 @@ func _update_briefing_ui() -> void:
 		animal_manager.briefing_text(),
 		_season_status_text(),
 		"加工提示：按 C 打开加工坊，把收获和畜产品立即做成更值钱的加工品。",
-		npc_manager.briefing_text()
+		npc_manager.briefing_text(),
+		apiary_manager.briefing_text()
 	)
 
 
@@ -1216,6 +1262,18 @@ func _update_foraging_ui() -> void:
 	if search_button is Button:
 		search_button.text = "Search (%d/%d)" % [foraging_manager.searches_today, ForagingManagerScript.MAX_SEARCHES_PER_DAY]
 		search_button.disabled = foraging_manager.searches_today >= ForagingManagerScript.MAX_SEARCHES_PER_DAY
+
+
+func _update_apiary_ui() -> void:
+	if apiary_value_label == null or apiary_manager == null:
+		return
+	apiary_value_label.text = apiary_manager.describe(inventory)
+	if apiary_panel == null:
+		return
+	var buy_button := apiary_panel.find_child("BuyBeehiveButton", true, false)
+	if buy_button is Button:
+		buy_button.text = "Buy Beehive - %d gold" % ApiaryManagerScript.BEEHIVE_PRICE
+		buy_button.disabled = apiary_manager.beehives >= ApiaryManagerScript.MAX_BEEHIVES
 
 
 func _update_farm_size_ui() -> void:
@@ -1358,6 +1416,14 @@ func _record_fish_sold_changes(before_fish: Dictionary) -> void:
 func _record_forage_sold_changes(before_forage: Dictionary) -> void:
 	for item_id in FORAGE_ITEMS:
 		var sold_count: int = int(before_forage.get(item_id, 0)) - inventory.count(item_id)
+		if sold_count > 0:
+			var sell_price := int(data_manager.items[item_id].get("sell_price", 0))
+			stats_manager.record_sold(item_id, sold_count, sell_price * sold_count)
+
+
+func _record_apiary_sold_changes(before_apiary: Dictionary) -> void:
+	for item_id in APIARY_ITEMS:
+		var sold_count: int = int(before_apiary.get(item_id, 0)) - inventory.count(item_id)
 		if sold_count > 0:
 			var sell_price := int(data_manager.items[item_id].get("sell_price", 0))
 			stats_manager.record_sold(item_id, sold_count, sell_price * sold_count)
