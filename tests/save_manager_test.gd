@@ -21,6 +21,7 @@ func _init() -> void:
 	inventory.money = 1425
 	inventory.add_item("potato_seed", 3)
 	inventory.add_item("cabbage", 2)
+	inventory.add_item("cheese", 1)
 
 	var time_manager = TimeManagerScript.new()
 	time_manager.day = 4
@@ -118,7 +119,7 @@ func _init() -> void:
 	if inventory.money != 275:
 		_fail("Loaded save should restore money.")
 		return
-	if inventory.count("potato_seed") != 2 or inventory.count("cabbage") != 2:
+	if inventory.count("potato_seed") != 2 or inventory.count("cabbage") != 2 or inventory.count("cheese") != 1:
 		_fail("Loaded save should restore inventory items.")
 		return
 	if time_manager.day != 4 or time_manager.hour != 17 or time_manager.minute != 45:

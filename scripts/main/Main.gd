@@ -13,11 +13,13 @@ const MilestoneManagerScript := preload("res://scripts/milestones/MilestoneManag
 const JournalManagerScript := preload("res://scripts/journal/JournalManager.gd")
 const BriefingManagerScript := preload("res://scripts/briefing/BriefingManager.gd")
 const AnimalManagerScript := preload("res://scripts/animals/AnimalManager.gd")
+const CraftingManagerScript := preload("res://scripts/crafting/CraftingManager.gd")
 
 const SEED_ITEMS: Array[String] = ["turnip_seed", "potato_seed", "cabbage_seed", "corn_seed"]
 const CROP_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn"]
 const ANIMAL_PRODUCT_ITEMS: Array[String] = ["egg", "milk"]
-const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk"]
+const PROCESSED_ITEMS: Array[String] = ["dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese"]
+const SELLABLE_ITEMS: Array[String] = ["turnip", "potato", "cabbage", "corn", "egg", "milk", "dried_turnip", "hash_brown", "cornmeal", "mayonnaise", "cheese"]
 
 @onready var player: CharacterBody2D = $Player
 
@@ -34,6 +36,7 @@ var milestone_manager
 var journal_manager
 var briefing_manager
 var animal_manager
+var crafting_manager
 var selected_seed_item_id := "turnip_seed"
 var recent_milestone_message := ""
 var status_label: Label
@@ -59,6 +62,8 @@ var briefing_panel: PanelContainer
 var briefing_value_label: Label
 var animal_panel: PanelContainer
 var animal_value_label: Label
+var crafting_panel: PanelContainer
+var crafting_value_label: Label
 var target_info: Dictionary = {}
 
 func _ready() -> void:
@@ -92,6 +97,8 @@ func _ready() -> void:
 	journal_manager = JournalManagerScript.new()
 	briefing_manager = BriefingManagerScript.new()
 	animal_manager = AnimalManagerScript.new()
+	crafting_manager = CraftingManagerScript.new()
+	crafting_manager.setup(data_manager.recipes, data_manager.items)
 
 	save_manager = SaveManagerScript.new()
 	var start_message := "早上好。靠近农田按 E，或直接点击农田开始干活。"
@@ -125,6 +132,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_feed_animals()
 		KEY_L:
 			_toggle_animals()
+		KEY_C:
+			_toggle_crafting()
 		KEY_X:
 			_buy_farm_expansion()
 		KEY_R:
@@ -217,10 +226,12 @@ func _next_day() -> void:
 
 func _sell_all_crops() -> void:
 	var before_crops := _counts_for(CROP_ITEMS)
+	var before_processed := _counts_for(PROCESSED_ITEMS)
 	var money_before: int = inventory.money
 	var result: Dictionary = shop_manager.sell_all_items(inventory, SELLABLE_ITEMS)
 	if bool(result.get("success", false)):
 		_record_sold_changes(before_crops, inventory.money - money_before)
+		_record_processed_sold_changes(before_processed, inventory.money - money_before)
 	_check_milestones()
 	_record_journal(String(result.get("message", "")))
 	_update_ui(String(result.get("message", "没有可以出售的农产品。")))
@@ -287,6 +298,16 @@ func _feed_animals() -> void:
 	_update_ui(String(result.get("message", "喂养失败。")))
 	refresh_inventory_ui()
 	_update_animal_ui()
+	_update_target_hint()
+
+
+func _craft_recipe(recipe_id: String) -> void:
+	var result: Dictionary = crafting_manager.craft(inventory, recipe_id)
+	if bool(result.get("success", false)):
+		_record_journal(String(result.get("message", "")))
+	_update_ui(String(result.get("message", "加工失败。")))
+	refresh_inventory_ui()
+	_update_crafting_ui()
 	_update_target_hint()
 
 
@@ -412,6 +433,15 @@ func _toggle_animals() -> void:
 		_update_ui("动物棚关闭。")
 
 
+func _toggle_crafting() -> void:
+	crafting_panel.visible = not crafting_panel.visible
+	_update_crafting_ui()
+	if crafting_panel.visible:
+		_update_ui("加工坊打开了。点击配方会立即消耗原料并产出加工品。")
+	else:
+		_update_ui("加工坊关闭。")
+
+
 func _build_ui() -> void:
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
@@ -432,7 +462,7 @@ func _build_ui() -> void:
 	margin.add_child(box)
 
 	hint_label = Label.new()
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | C加工 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	box.add_child(hint_label)
 
 	order_label = Label.new()
@@ -462,6 +492,7 @@ func _build_ui() -> void:
 	_build_shop_panel(canvas)
 	_build_stats_panel(canvas)
 	_build_animal_panel(canvas)
+	_build_crafting_panel(canvas)
 	_build_help_panel(canvas)
 	_build_briefing_panel(canvas)
 	_build_journal_panel(canvas)
@@ -587,6 +618,42 @@ func _build_animal_panel(canvas: CanvasLayer) -> void:
 	feed_button.text = "喂全部动物"
 	feed_button.pressed.connect(_feed_animals)
 	box.add_child(feed_button)
+
+
+func _build_crafting_panel(canvas: CanvasLayer) -> void:
+	crafting_panel = PanelContainer.new()
+	crafting_panel.name = "CraftingPanel"
+	crafting_panel.position = Vector2(570, 486)
+	crafting_panel.custom_minimum_size = Vector2(360, 190)
+	crafting_panel.visible = false
+	canvas.add_child(crafting_panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	crafting_panel.add_child(margin)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	margin.add_child(box)
+
+	var title := Label.new()
+	title.text = "加工坊"
+	box.add_child(title)
+
+	crafting_value_label = Label.new()
+	crafting_value_label.name = "CraftingValue"
+	crafting_value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(crafting_value_label)
+
+	for recipe_id in crafting_manager.recipe_ids():
+		var button := Button.new()
+		button.name = "%sCraftButton" % String(recipe_id).to_pascal_case()
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(_craft_recipe.bind(String(recipe_id)))
+		box.add_child(button)
 
 
 func _build_help_panel(canvas: CanvasLayer) -> void:
@@ -769,6 +836,7 @@ func _update_ui(message: String) -> void:
 	_update_briefing_ui()
 	_update_farm_size_ui()
 	_update_animal_ui()
+	_update_crafting_ui()
 	_update_stats_ui()
 
 
@@ -796,6 +864,7 @@ func refresh_inventory_ui() -> void:
 	_update_briefing_ui()
 	_update_farm_size_ui()
 	_update_animal_ui()
+	_update_crafting_ui()
 	_update_stats_ui()
 
 
@@ -820,7 +889,7 @@ func _update_target_hint() -> void:
 		return
 
 	target_info = farm_manager.get_target_info(player.facing_position(), selected_seed_item_id)
-	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
+	hint_label.text = "WASD/方向键移动 | E/空格交互 | 鼠标点农田 | H帮助 | 1-4选种 | B商店 | C加工 | L动物棚 | F喂养 | I图鉴 | J日记 | R晨报 | X扩建 | M出售 | O订单 | F5保存 | F9读档"
 	if bool(target_info.get("valid", false)):
 		hint_label.text += "\n当前农田: %s" % String(target_info.get("prompt", ""))
 	else:
@@ -865,7 +934,8 @@ func _update_briefing_ui() -> void:
 		weather_manager.describe(),
 		order_manager.describe_order(inventory),
 		milestone_text,
-		animal_manager.briefing_text()
+		animal_manager.briefing_text(),
+		"加工提示：按 C 打开加工坊，把收获和畜产品立即做成更值钱的加工品。"
 	)
 
 
@@ -879,6 +949,19 @@ func _update_animal_ui() -> void:
 	var cow_button := animal_panel.find_child("BuyCowButton", true, false)
 	if cow_button is Button:
 		cow_button.text = "买牛 - %d 金" % AnimalManagerScript.COW_PRICE
+
+
+func _update_crafting_ui() -> void:
+	if crafting_value_label == null or crafting_manager == null:
+		return
+	crafting_value_label.text = crafting_manager.describe(inventory)
+	for recipe_id in crafting_manager.recipe_ids():
+		var button := crafting_panel.find_child("%sCraftButton" % String(recipe_id).to_pascal_case(), true, false)
+		if button is Button:
+			var recipe: Dictionary = data_manager.recipes.get(recipe_id, {})
+			var output_item_id := String(recipe.get("output", ""))
+			button.text = "加工 %s" % _item_name(output_item_id)
+			button.disabled = not crafting_manager.can_craft(inventory, String(recipe_id))
 
 
 func _update_farm_size_ui() -> void:
@@ -992,6 +1075,14 @@ func _record_sold_changes(before_crops: Dictionary, earned: int) -> void:
 		if sold_count > 0:
 			var sell_price := int(data_manager.items[crop_id].get("sell_price", 0))
 			stats_manager.record_sold(crop_id, sold_count, sell_price * sold_count)
+
+
+func _record_processed_sold_changes(before_processed: Dictionary, earned: int) -> void:
+	for item_id in PROCESSED_ITEMS:
+		var sold_count: int = int(before_processed.get(item_id, 0)) - inventory.count(item_id)
+		if sold_count > 0:
+			var sell_price := int(data_manager.items[item_id].get("sell_price", 0))
+			stats_manager.record_sold(item_id, sold_count, sell_price * sold_count)
 
 
 func _should_auto_load() -> bool:

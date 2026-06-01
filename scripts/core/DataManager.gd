@@ -3,10 +3,12 @@ class_name DataManager
 
 var crops: Dictionary = {}
 var items: Dictionary = {}
+var recipes: Dictionary = {}
 
 func load_all() -> void:
 	crops = _load_json_dictionary("res://data/crops.json")
 	items = _load_json_dictionary("res://data/items.json")
+	recipes = _load_json_dictionary("res://data/recipes.json")
 
 
 func _load_json_dictionary(path: String) -> Dictionary:
