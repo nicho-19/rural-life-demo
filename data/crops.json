@@ -3,7 +3,7 @@
     "name": "萝卜",
     "seed_item": "turnip_seed",
     "grow_days": 3,
-    "season": ["spring"],
+    "season": ["spring", "summer"],
     "sell_price": 60,
     "stages": 3
   },
@@ -11,7 +11,7 @@
     "name": "土豆",
     "seed_item": "potato_seed",
     "grow_days": 4,
-    "season": ["spring"],
+    "season": ["spring", "autumn"],
     "sell_price": 90,
     "stages": 4
   },
@@ -19,7 +19,7 @@
     "name": "白菜",
     "seed_item": "cabbage_seed",
     "grow_days": 5,
-    "season": ["spring"],
+    "season": ["spring", "autumn"],
     "sell_price": 130,
     "stages": 5
   },
@@ -27,7 +27,7 @@
     "name": "玉米",
     "seed_item": "corn_seed",
     "grow_days": 6,
-    "season": ["spring"],
+    "season": ["summer"],
     "sell_price": 160,
     "stages": 6
   }

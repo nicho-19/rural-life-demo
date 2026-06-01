@@ -31,7 +31,7 @@ func setup(crop_data: Dictionary) -> void:
 	_initialize_tiles()
 
 
-func interact_at(world_position: Vector2, inventory, seed_item_id: String = "turnip_seed") -> String:
+func interact_at(world_position: Vector2, inventory, seed_item_id: String = "turnip_seed", current_season: String = "spring") -> String:
 	var cell := world_to_cell(world_position)
 	if not tiles.has(cell):
 		return "这里不是农田。站在农田旁边，或用鼠标点击农田格。"
@@ -45,6 +45,8 @@ func interact_at(world_position: Vector2, inventory, seed_item_id: String = "tur
 			var crop_id := crop_id_for_seed(seed_item_id)
 			if crop_id.is_empty():
 				return "先选择一种可以种植的种子。"
+			if not can_plant_in_season(crop_id, current_season):
+				return "%s cannot be planted in %s season." % [seed_name_for_crop(crop_id), current_season]
 			if not inventory.remove_item(seed_item_id, 1):
 				return "%s 不够了，去商店买一些吧。" % seed_name_for_crop(crop_id)
 			tile["state"] = TileState.PLANTED
@@ -67,7 +69,7 @@ func interact_at(world_position: Vector2, inventory, seed_item_id: String = "tur
 	return "这里暂时不能操作。"
 
 
-func get_target_info(world_position: Vector2, seed_item_id: String = "turnip_seed") -> Dictionary:
+func get_target_info(world_position: Vector2, seed_item_id: String = "turnip_seed", current_season: String = "spring") -> Dictionary:
 	var cell := world_to_cell(world_position)
 	if not tiles.has(cell):
 		return {
@@ -82,7 +84,7 @@ func get_target_info(world_position: Vector2, seed_item_id: String = "turnip_see
 		"valid": true,
 		"cell": cell,
 		"rect": cell_to_rect(cell),
-		"prompt": _prompt_for_tile(tile, seed_item_id),
+		"prompt": _prompt_for_tile(tile, seed_item_id, current_season),
 	}
 
 
@@ -151,6 +153,14 @@ func seed_name_for_crop(crop_id: String) -> String:
 	return "%s种子" % crop_name(crop_id)
 
 
+func can_plant_in_season(crop_id: String, current_season: String) -> bool:
+	var crop: Dictionary = crops.get(crop_id, {})
+	var seasons = crop.get("season", [])
+	if not seasons is Array or seasons.is_empty():
+		return true
+	return seasons.has(current_season)
+
+
 func world_to_cell(world_position: Vector2) -> Vector2i:
 	var local := world_position - FARM_ORIGIN
 	return Vector2i(floori(local.x / CELL_SIZE), floori(local.y / CELL_SIZE))
@@ -192,7 +202,7 @@ func _tile_color(state: int) -> Color:
 	return Color("#7a5a36")
 
 
-func _prompt_for_tile(tile: Dictionary, seed_item_id: String) -> String:
+func _prompt_for_tile(tile: Dictionary, seed_item_id: String, current_season: String) -> String:
 	match int(tile["state"]):
 		TileState.EMPTY:
 			return "按 E 或点击：开垦土地"
@@ -200,6 +210,8 @@ func _prompt_for_tile(tile: Dictionary, seed_item_id: String) -> String:
 			var crop_id := crop_id_for_seed(seed_item_id)
 			if crop_id.is_empty():
 				return "先选择一种种子"
+			if not can_plant_in_season(crop_id, current_season):
+				return "%s is out of season for %s." % [seed_name_for_crop(crop_id), current_season]
 			return "按 E 或点击：种植%s" % seed_name_for_crop(crop_id)
 		TileState.PLANTED:
 			return "按 E 或点击：浇水"
