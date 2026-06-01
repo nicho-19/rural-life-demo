@@ -1,5 +1,10 @@
 # Rural Life Demo
 
+## Launcher
+
+- Double-click `launch_game.bat` to start the game on Windows.
+- Advanced/manual launch: run `powershell -ExecutionPolicy Bypass -File .\launch_game.ps1`.
+
 Godot 4 农村经营游戏 demo。
 
 ## 操作
