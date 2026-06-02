@@ -3,10 +3,10 @@ class_name PlayerController
 
 @export var speed: float = 140.0
 
-const FRAME_SIZE := Vector2(256, 512)
+const FRAME_SIZE := Vector2(128, 256)
 const FRAME_COUNT := 3
 const ANIMATION_STEP_SECONDS := 0.16
-const BASE_SPRITE_Y := -40.0
+const BASE_SPRITE_Y := -34.0
 const WALK_BOB_OFFSETS := [-2.0, 0.0, 2.0]
 
 @onready var sprite: Sprite2D = $Sprite2D
@@ -52,7 +52,7 @@ func apply_walk_visual(direction: Vector2, frame_index: int) -> void:
 
 	var row := _direction_to_row(direction)
 	var clamped_frame := clampi(frame_index, 0, FRAME_COUNT - 1)
-	sprite.region_rect = Rect2(Vector2(row * FRAME_SIZE.x, 0), FRAME_SIZE)
+	sprite.region_rect = Rect2(Vector2(clamped_frame * FRAME_SIZE.x, row * FRAME_SIZE.y), FRAME_SIZE)
 	sprite.flip_h = direction.x > 0.0
 	sprite.position.y = BASE_SPRITE_Y + WALK_BOB_OFFSETS[clamped_frame]
 
@@ -60,7 +60,7 @@ func apply_walk_visual(direction: Vector2, frame_index: int) -> void:
 func _direction_to_row(direction: Vector2) -> int:
 	if absf(direction.x) > absf(direction.y):
 		return 1
-	return 2 if direction.y < 0.0 else 0
+	return 3 if direction.y < 0.0 else 0
 
 
 func _register_move_action(action_name: StringName, keys: Array[int]) -> void:
