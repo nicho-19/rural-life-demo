@@ -19,6 +19,13 @@ func _init() -> void:
 	if not String(sprite.texture.resource_path).ends_with("walking_sprite_sheet.png"):
 		_fail("Player should use the walking sprite sheet for movement.")
 		return
+	var runtime_image: Image = sprite.texture.get_image()
+	if runtime_image == null:
+		_fail("Player walking texture should expose runtime image data.")
+		return
+	if runtime_image.get_pixel(40, 40).a > 0.05:
+		_fail("Imported player walking texture background should be transparent.")
+		return
 
 	var image := Image.new()
 	var png_bytes := FileAccess.get_file_as_bytes("res://assets/characters/walking_sprite_sheet.png")
