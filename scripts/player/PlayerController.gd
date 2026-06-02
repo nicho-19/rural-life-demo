@@ -5,28 +5,22 @@ class_name PlayerController
 
 const FRAME_SIZE := Vector2(128, 256)
 const FRAME_COUNT := 3
-const ANIMATION_STEP_SECONDS := 0.16
-const BASE_SPRITE_Y := -34.0
 const BASE_SCALE := Vector2(0.22, 0.22)
-const WALK_BOB_AMPLITUDE := 3.5
-const WALK_SWAY_AMPLITUDE := 0.12
-const WALK_SQUASH_AMPLITUDE := 0.08
-const WALK_LEAN_AMPLITUDE := 0.03
+const WALK_FRAME_SECONDS := 0.14
 
-@onready var sprite: Sprite2D = $Sprite2D
+@onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 
 var _last_direction := Vector2.DOWN
 var _animation_time := 0.0
-var _frame_index := 0
-var _walk_cycle_phase := 0.0
-var _is_walking := false
+
 
 func _ready() -> void:
 	_register_move_action("move_left", [KEY_A, KEY_LEFT])
 	_register_move_action("move_right", [KEY_D, KEY_RIGHT])
 	_register_move_action("move_up", [KEY_W, KEY_UP])
 	_register_move_action("move_down", [KEY_S, KEY_DOWN])
-	apply_walk_visual(_last_direction, 1)
+	_setup_sprite_frames()
+	set_walk_state(_last_direction, false)
 
 
 func _physics_process(delta: float) -> void:
@@ -34,64 +28,96 @@ func _physics_process(delta: float) -> void:
 	var is_moving := input_vector.length() > 0.0
 	if is_moving:
 		_last_direction = input_vector.normalized()
-	advance_walk_animation(is_moving, delta)
+	advance_walk_cycle(delta, is_moving)
 
 	velocity = input_vector * speed
 	move_and_slide()
-	apply_walk_visual(_last_direction, _frame_index)
+	set_walk_state(_last_direction, is_moving)
 
 
 func facing_position(distance: float = 24.0) -> Vector2:
 	return global_position + _last_direction * distance
 
 
-func advance_walk_animation(is_moving: bool, delta: float) -> void:
-	_is_walking = is_moving
+func set_walk_state(direction: Vector2, is_moving: bool) -> void:
+	if animated_sprite == null:
+		animated_sprite = get_node_or_null("AnimatedSprite2D")
+	if animated_sprite == null:
+		return
+	_setup_sprite_frames()
+
+	var facing := _direction_to_name(direction)
+	animated_sprite.flip_h = facing == "right"
+	var animation_name := "%s_%s" % ["walk" if is_moving else "idle", facing]
+
+	if animated_sprite.animation != animation_name:
+		animated_sprite.play(animation_name)
+
 	if is_moving:
-		_animation_time += delta
-		_walk_cycle_phase += TAU * delta / (ANIMATION_STEP_SECONDS * FRAME_COUNT)
-		if _walk_cycle_phase >= TAU:
-			_walk_cycle_phase = fmod(_walk_cycle_phase, TAU)
-		while _animation_time >= ANIMATION_STEP_SECONDS:
-			_animation_time -= ANIMATION_STEP_SECONDS
-			_frame_index = (_frame_index + 1) % FRAME_COUNT
-	else:
+		animated_sprite.speed_scale = 1.0
+		if not animated_sprite.is_playing():
+			animated_sprite.play(animation_name)
+		return
+
+	animated_sprite.stop()
+	animated_sprite.frame = 1
+	animated_sprite.frame_progress = 0.0
+
+
+func advance_walk_cycle(delta: float, is_moving: bool) -> void:
+	if animated_sprite == null:
+		animated_sprite = get_node_or_null("AnimatedSprite2D")
+	if animated_sprite == null:
+		return
+	if not is_moving:
 		_animation_time = 0.0
-		_frame_index = 1
-		_walk_cycle_phase = PI * 0.5
-
-
-func apply_walk_visual(direction: Vector2, frame_index: int) -> void:
-	if sprite == null:
-		sprite = get_node_or_null("Sprite2D")
-	if sprite == null:
+		animated_sprite.frame = 1
 		return
 
-	var row := _direction_to_row(direction)
-	var clamped_frame := clampi(frame_index, 0, FRAME_COUNT - 1)
-	sprite.region_rect = Rect2(Vector2(clamped_frame * FRAME_SIZE.x, row * FRAME_SIZE.y), FRAME_SIZE)
-	sprite.flip_h = direction.x > 0.0
-	if not _is_walking:
-		sprite.position.y = BASE_SPRITE_Y
-		sprite.scale = BASE_SCALE
-		sprite.rotation = 0.0
+	_animation_time += delta
+	while _animation_time >= WALK_FRAME_SECONDS:
+		_animation_time -= WALK_FRAME_SECONDS
+		animated_sprite.frame = (animated_sprite.frame + 1) % FRAME_COUNT
+
+
+func _setup_sprite_frames() -> void:
+	if animated_sprite == null:
 		return
-	var walk_wave := sin(_walk_cycle_phase)
-	var stride_wave := cos(_walk_cycle_phase)
-	sprite.position.y = BASE_SPRITE_Y + walk_wave * WALK_BOB_AMPLITUDE
-	var scale_x := 1.0 + stride_wave * WALK_SQUASH_AMPLITUDE
-	var scale_y := 1.0 - stride_wave * WALK_SQUASH_AMPLITUDE
-	sprite.scale = Vector2(BASE_SCALE.x * scale_x, BASE_SCALE.y * scale_y)
-	var direction_sign := -1.0 if direction.x < 0.0 else 1.0
-	if absf(direction.x) <= absf(direction.y):
-		direction_sign = 1.0
-	sprite.rotation = walk_wave * WALK_SWAY_AMPLITUDE + stride_wave * WALK_LEAN_AMPLITUDE * direction_sign
+	if animated_sprite.sprite_frames != null and animated_sprite.sprite_frames.has_animation("walk_down"):
+		return
+
+	var sheet: Texture2D = load("res://assets/characters/walking_sprite_sheet.png")
+	var frames := SpriteFrames.new()
+	_add_direction_frames(frames, sheet, "down", 0)
+	_add_direction_frames(frames, sheet, "left", 1)
+	_add_direction_frames(frames, sheet, "right", 1)
+	_add_direction_frames(frames, sheet, "up", 3)
+	animated_sprite.sprite_frames = frames
+	animated_sprite.scale = BASE_SCALE
 
 
-func _direction_to_row(direction: Vector2) -> int:
+func _add_direction_frames(frames: SpriteFrames, sheet: Texture2D, direction_name: String, row: int) -> void:
+	var walk_name := "walk_%s" % direction_name
+	var idle_name := "idle_%s" % direction_name
+	frames.add_animation(walk_name)
+	frames.set_animation_loop(walk_name, true)
+	frames.set_animation_speed(walk_name, 7.5)
+	frames.add_animation(idle_name)
+	frames.set_animation_loop(idle_name, false)
+	frames.set_animation_speed(idle_name, 0.0)
+
+	for frame_index in FRAME_COUNT:
+		var atlas := AtlasTexture.new()
+		atlas.atlas = sheet
+		atlas.region = Rect2(Vector2(frame_index * FRAME_SIZE.x, row * FRAME_SIZE.y), FRAME_SIZE)
+		frames.add_frame(walk_name, atlas)
+		frames.add_frame(idle_name, atlas)
+
+
+func _direction_to_name(direction: Vector2) -> String:
 	if absf(direction.x) > absf(direction.y):
-		return 1
-	return 3 if direction.y < 0.0 else 0
+		return "right" if direction.x > 0.0 else "left"
+	return "up" if direction.y < 0.0 else "down"
 
 
 func _register_move_action(action_name: StringName, keys: Array[int]) -> void:
