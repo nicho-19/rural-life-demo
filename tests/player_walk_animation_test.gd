@@ -1,6 +1,7 @@
 extends SceneTree
 
 const FRAME_SIZE := Vector2(128, 256)
+const ANIMATION_STEP_SECONDS := 0.16
 
 func _init() -> void:
 	var scene: PackedScene = load("res://scenes/player/Player.tscn")
@@ -33,6 +34,22 @@ func _init() -> void:
 		return
 	if sprite.flip_h:
 		_fail(player, "Up-facing movement should not keep the sprite mirrored.")
+		return
+
+	if not player.has_method("advance_walk_animation"):
+		_fail(player, "PlayerController should expose advance_walk_animation(is_moving, delta).")
+		return
+
+	player.call("advance_walk_animation", true, ANIMATION_STEP_SECONDS + 0.01)
+	player.call("advance_walk_animation", true, ANIMATION_STEP_SECONDS + 0.01)
+	player.call("apply_walk_visual", Vector2.RIGHT, player.get("_frame_index"))
+	var moving_frame := sprite.region_rect.position
+	var moving_offset_y := sprite.position.y
+	if moving_frame == Vector2(128, 256):
+		_fail(player, "Moving right should advance beyond the idle side-facing frame.")
+		return
+	if is_equal_approx(moving_offset_y, -34.0):
+		_fail(player, "Moving walk animation should visibly bob the sprite.")
 		return
 
 	player.free()

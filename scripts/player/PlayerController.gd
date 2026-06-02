@@ -8,6 +8,9 @@ const FRAME_COUNT := 3
 const ANIMATION_STEP_SECONDS := 0.16
 const BASE_SPRITE_Y := -34.0
 const WALK_BOB_OFFSETS := [-2.0, 0.0, 2.0]
+const BASE_SCALE := Vector2(0.22, 0.22)
+const WALK_SCALE_MULTIPLIERS := [Vector2(0.96, 1.04), Vector2(1.0, 1.0), Vector2(1.04, 0.96)]
+const WALK_ROTATIONS := [-0.05, 0.0, 0.05]
 
 @onready var sprite: Sprite2D = $Sprite2D
 
@@ -25,15 +28,10 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	if input_vector.length() > 0.0:
+	var is_moving := input_vector.length() > 0.0
+	if is_moving:
 		_last_direction = input_vector.normalized()
-		_animation_time += delta
-		if _animation_time >= ANIMATION_STEP_SECONDS:
-			_animation_time = 0.0
-			_frame_index = (_frame_index + 1) % FRAME_COUNT
-	else:
-		_animation_time = 0.0
-		_frame_index = 1
+	advance_walk_animation(is_moving, delta)
 
 	velocity = input_vector * speed
 	move_and_slide()
@@ -42,6 +40,17 @@ func _physics_process(delta: float) -> void:
 
 func facing_position(distance: float = 24.0) -> Vector2:
 	return global_position + _last_direction * distance
+
+
+func advance_walk_animation(is_moving: bool, delta: float) -> void:
+	if is_moving:
+		_animation_time += delta
+		while _animation_time >= ANIMATION_STEP_SECONDS:
+			_animation_time -= ANIMATION_STEP_SECONDS
+			_frame_index = (_frame_index + 1) % FRAME_COUNT
+	else:
+		_animation_time = 0.0
+		_frame_index = 1
 
 
 func apply_walk_visual(direction: Vector2, frame_index: int) -> void:
@@ -55,6 +64,8 @@ func apply_walk_visual(direction: Vector2, frame_index: int) -> void:
 	sprite.region_rect = Rect2(Vector2(clamped_frame * FRAME_SIZE.x, row * FRAME_SIZE.y), FRAME_SIZE)
 	sprite.flip_h = direction.x > 0.0
 	sprite.position.y = BASE_SPRITE_Y + WALK_BOB_OFFSETS[clamped_frame]
+	sprite.scale = BASE_SCALE * WALK_SCALE_MULTIPLIERS[clamped_frame]
+	sprite.rotation = WALK_ROTATIONS[clamped_frame]
 
 
 func _direction_to_row(direction: Vector2) -> int:
