@@ -52,6 +52,19 @@ func _init() -> void:
 		_fail(player, "Moving walk animation should visibly bob the sprite.")
 		return
 
+	player.call("advance_walk_animation", false, 0.0)
+	player.call("apply_walk_visual", Vector2.RIGHT, 1)
+	var idle_rotation := sprite.rotation
+	var idle_scale := sprite.scale
+	player.call("advance_walk_animation", true, ANIMATION_STEP_SECONDS * 0.5)
+	player.call("apply_walk_visual", Vector2.RIGHT, player.get("_frame_index"))
+	if is_equal_approx(sprite.rotation, idle_rotation):
+		_fail(player, "Walking animation should sway continuously between frame changes.")
+		return
+	if sprite.scale.is_equal_approx(idle_scale):
+		_fail(player, "Walking animation should squash or stretch continuously while moving.")
+		return
+
 	player.free()
 	print("PASS player_walk_animation_test")
 	quit(0)

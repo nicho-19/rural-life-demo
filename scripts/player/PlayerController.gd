@@ -7,16 +7,19 @@ const FRAME_SIZE := Vector2(128, 256)
 const FRAME_COUNT := 3
 const ANIMATION_STEP_SECONDS := 0.16
 const BASE_SPRITE_Y := -34.0
-const WALK_BOB_OFFSETS := [-2.0, 0.0, 2.0]
 const BASE_SCALE := Vector2(0.22, 0.22)
-const WALK_SCALE_MULTIPLIERS := [Vector2(0.96, 1.04), Vector2(1.0, 1.0), Vector2(1.04, 0.96)]
-const WALK_ROTATIONS := [-0.05, 0.0, 0.05]
+const WALK_BOB_AMPLITUDE := 3.5
+const WALK_SWAY_AMPLITUDE := 0.12
+const WALK_SQUASH_AMPLITUDE := 0.08
+const WALK_LEAN_AMPLITUDE := 0.03
 
 @onready var sprite: Sprite2D = $Sprite2D
 
 var _last_direction := Vector2.DOWN
 var _animation_time := 0.0
 var _frame_index := 0
+var _walk_cycle_phase := 0.0
+var _is_walking := false
 
 func _ready() -> void:
 	_register_move_action("move_left", [KEY_A, KEY_LEFT])
@@ -43,14 +46,19 @@ func facing_position(distance: float = 24.0) -> Vector2:
 
 
 func advance_walk_animation(is_moving: bool, delta: float) -> void:
+	_is_walking = is_moving
 	if is_moving:
 		_animation_time += delta
+		_walk_cycle_phase += TAU * delta / (ANIMATION_STEP_SECONDS * FRAME_COUNT)
+		if _walk_cycle_phase >= TAU:
+			_walk_cycle_phase = fmod(_walk_cycle_phase, TAU)
 		while _animation_time >= ANIMATION_STEP_SECONDS:
 			_animation_time -= ANIMATION_STEP_SECONDS
 			_frame_index = (_frame_index + 1) % FRAME_COUNT
 	else:
 		_animation_time = 0.0
 		_frame_index = 1
+		_walk_cycle_phase = PI * 0.5
 
 
 func apply_walk_visual(direction: Vector2, frame_index: int) -> void:
@@ -63,9 +71,21 @@ func apply_walk_visual(direction: Vector2, frame_index: int) -> void:
 	var clamped_frame := clampi(frame_index, 0, FRAME_COUNT - 1)
 	sprite.region_rect = Rect2(Vector2(clamped_frame * FRAME_SIZE.x, row * FRAME_SIZE.y), FRAME_SIZE)
 	sprite.flip_h = direction.x > 0.0
-	sprite.position.y = BASE_SPRITE_Y + WALK_BOB_OFFSETS[clamped_frame]
-	sprite.scale = BASE_SCALE * WALK_SCALE_MULTIPLIERS[clamped_frame]
-	sprite.rotation = WALK_ROTATIONS[clamped_frame]
+	if not _is_walking:
+		sprite.position.y = BASE_SPRITE_Y
+		sprite.scale = BASE_SCALE
+		sprite.rotation = 0.0
+		return
+	var walk_wave := sin(_walk_cycle_phase)
+	var stride_wave := cos(_walk_cycle_phase)
+	sprite.position.y = BASE_SPRITE_Y + walk_wave * WALK_BOB_AMPLITUDE
+	var scale_x := 1.0 + stride_wave * WALK_SQUASH_AMPLITUDE
+	var scale_y := 1.0 - stride_wave * WALK_SQUASH_AMPLITUDE
+	sprite.scale = Vector2(BASE_SCALE.x * scale_x, BASE_SCALE.y * scale_y)
+	var direction_sign := -1.0 if direction.x < 0.0 else 1.0
+	if absf(direction.x) <= absf(direction.y):
+		direction_sign = 1.0
+	sprite.rotation = walk_wave * WALK_SWAY_AMPLITUDE + stride_wave * WALK_LEAN_AMPLITUDE * direction_sign
 
 
 func _direction_to_row(direction: Vector2) -> int:
