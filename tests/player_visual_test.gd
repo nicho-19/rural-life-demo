@@ -23,9 +23,13 @@ func _init() -> void:
 		"TorsoBone": "TorsoBone",
 		"HeadBone": "TorsoBone/HeadBone",
 		"LeftArmBone": "TorsoBone/LeftArmBone",
+		"LeftForearmBone": "TorsoBone/LeftArmBone/LeftForearmBone",
 		"RightArmBone": "TorsoBone/RightArmBone",
+		"RightForearmBone": "TorsoBone/RightArmBone/RightForearmBone",
 		"LeftLegBone": "TorsoBone/LeftLegBone",
+		"LeftCalfBone": "TorsoBone/LeftLegBone/LeftCalfBone",
 		"RightLegBone": "TorsoBone/RightLegBone",
+		"RightCalfBone": "TorsoBone/RightLegBone/RightCalfBone",
 	}
 	for bone_name in bone_paths.keys():
 		var bone := skeleton.get_node_or_null(bone_paths[bone_name])
@@ -44,6 +48,11 @@ func _init() -> void:
 	var torso_shape := skeleton.get_node_or_null("TorsoBone/TorsoShape")
 	if torso_shape == null or not torso_shape is Polygon2D:
 		_fail(player, "Player torso should be rendered from a Polygon2D shape attached to the skeleton.")
+		return
+
+	var forearm_shape := skeleton.get_node_or_null("TorsoBone/LeftArmBone/LeftForearmBone/LeftForearmShape")
+	if forearm_shape == null or not forearm_shape is Polygon2D:
+		_fail(player, "Player forearm should be rendered from a Polygon2D shape attached to the skeleton.")
 		return
 
 	player.free()

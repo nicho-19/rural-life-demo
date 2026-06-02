@@ -27,9 +27,13 @@ var _is_moving := false
 var _torso_bone: Bone2D
 var _head_bone: Bone2D
 var _left_arm_bone: Bone2D
+var _left_forearm_bone: Bone2D
 var _right_arm_bone: Bone2D
+var _right_forearm_bone: Bone2D
 var _left_leg_bone: Bone2D
+var _left_calf_bone: Bone2D
 var _right_leg_bone: Bone2D
+var _right_calf_bone: Bone2D
 
 
 func _ready() -> void:
@@ -88,15 +92,23 @@ func _ensure_rig() -> void:
 		_torso_bone = _make_bone("TorsoBone", Vector2.ZERO, 18.0)
 		_head_bone = _make_bone("HeadBone", Vector2(0, -20), 8.0)
 		_left_arm_bone = _make_bone("LeftArmBone", Vector2(-9, -11), 18.0)
+		_left_forearm_bone = _make_bone("LeftForearmBone", Vector2(0, 13), 12.0)
 		_right_arm_bone = _make_bone("RightArmBone", Vector2(9, -11), 18.0)
+		_right_forearm_bone = _make_bone("RightForearmBone", Vector2(0, 13), 12.0)
 		_left_leg_bone = _make_bone("LeftLegBone", Vector2(-5, 14), 20.0)
+		_left_calf_bone = _make_bone("LeftCalfBone", Vector2(0, 14), 12.0)
 		_right_leg_bone = _make_bone("RightLegBone", Vector2(5, 14), 20.0)
+		_right_calf_bone = _make_bone("RightCalfBone", Vector2(0, 14), 12.0)
 
 		_head_bone.add_child(_make_bone("HeadEndBone", Vector2(0, 8), 2.0))
-		_left_arm_bone.add_child(_make_bone("LeftHandBone", Vector2(0, 18), 2.0))
-		_right_arm_bone.add_child(_make_bone("RightHandBone", Vector2(0, 18), 2.0))
-		_left_leg_bone.add_child(_make_bone("LeftFootBone", Vector2(0, 20), 2.0))
-		_right_leg_bone.add_child(_make_bone("RightFootBone", Vector2(0, 20), 2.0))
+		_left_forearm_bone.add_child(_make_bone("LeftHandBone", Vector2(0, 12), 2.0))
+		_right_forearm_bone.add_child(_make_bone("RightHandBone", Vector2(0, 12), 2.0))
+		_left_calf_bone.add_child(_make_bone("LeftFootBone", Vector2(0, 12), 2.0))
+		_right_calf_bone.add_child(_make_bone("RightFootBone", Vector2(0, 12), 2.0))
+		_left_arm_bone.add_child(_left_forearm_bone)
+		_right_arm_bone.add_child(_right_forearm_bone)
+		_left_leg_bone.add_child(_left_calf_bone)
+		_right_leg_bone.add_child(_right_calf_bone)
 
 		_torso_bone.add_child(_head_bone)
 		_torso_bone.add_child(_left_arm_bone)
@@ -108,9 +120,13 @@ func _ensure_rig() -> void:
 		_torso_bone = skeleton.get_node_or_null("TorsoBone")
 		_head_bone = skeleton.get_node_or_null("TorsoBone/HeadBone")
 		_left_arm_bone = skeleton.get_node_or_null("TorsoBone/LeftArmBone")
+		_left_forearm_bone = skeleton.get_node_or_null("TorsoBone/LeftArmBone/LeftForearmBone")
 		_right_arm_bone = skeleton.get_node_or_null("TorsoBone/RightArmBone")
+		_right_forearm_bone = skeleton.get_node_or_null("TorsoBone/RightArmBone/RightForearmBone")
 		_left_leg_bone = skeleton.get_node_or_null("TorsoBone/LeftLegBone")
+		_left_calf_bone = skeleton.get_node_or_null("TorsoBone/LeftLegBone/LeftCalfBone")
 		_right_leg_bone = skeleton.get_node_or_null("TorsoBone/RightLegBone")
+		_right_calf_bone = skeleton.get_node_or_null("TorsoBone/RightLegBone/RightCalfBone")
 
 	_ensure_polygon(_torso_bone, "TorsoShape", OVERALL_COLOR, PackedVector2Array([
 		Vector2(-9, -14), Vector2(9, -14), Vector2(10, 14), Vector2(-10, 14)
@@ -132,22 +148,34 @@ func _ensure_rig() -> void:
 		Vector2(-7, -16), Vector2(6, -16), Vector2(8, -11), Vector2(-8, -11)
 	]))
 	_ensure_polygon(_left_arm_bone, "LeftArmShape", SHIRT_COLOR, PackedVector2Array([
-		Vector2(-2, 0), Vector2(2, 0), Vector2(3, 18), Vector2(-3, 18)
+		Vector2(-2, 0), Vector2(2, 0), Vector2(3, 14), Vector2(-3, 14)
+	]))
+	_ensure_polygon(_left_forearm_bone, "LeftForearmShape", SKIN_COLOR, PackedVector2Array([
+		Vector2(-2, 0), Vector2(2, 0), Vector2(2, 12), Vector2(-2, 12)
 	]))
 	_ensure_polygon(_right_arm_bone, "RightArmShape", SHIRT_COLOR, PackedVector2Array([
-		Vector2(-2, 0), Vector2(2, 0), Vector2(3, 18), Vector2(-3, 18)
+		Vector2(-2, 0), Vector2(2, 0), Vector2(3, 14), Vector2(-3, 14)
+	]))
+	_ensure_polygon(_right_forearm_bone, "RightForearmShape", SKIN_COLOR, PackedVector2Array([
+		Vector2(-2, 0), Vector2(2, 0), Vector2(2, 12), Vector2(-2, 12)
 	]))
 	_ensure_polygon(_left_leg_bone, "LeftLegShape", OVERALL_COLOR, PackedVector2Array([
-		Vector2(-3, 0), Vector2(3, 0), Vector2(4, 18), Vector2(-4, 18)
+		Vector2(-3, 0), Vector2(3, 0), Vector2(4, 14), Vector2(-4, 14)
+	]))
+	_ensure_polygon(_left_calf_bone, "LeftCalfShape", OVERALL_COLOR, PackedVector2Array([
+		Vector2(-3, 0), Vector2(3, 0), Vector2(4, 12), Vector2(-4, 12)
 	]))
 	_ensure_polygon(_right_leg_bone, "RightLegShape", OVERALL_COLOR, PackedVector2Array([
-		Vector2(-3, 0), Vector2(3, 0), Vector2(4, 18), Vector2(-4, 18)
+		Vector2(-3, 0), Vector2(3, 0), Vector2(4, 14), Vector2(-4, 14)
 	]))
-	_ensure_polygon(_left_leg_bone, "LeftBootShape", BOOT_COLOR, PackedVector2Array([
-		Vector2(-5, 16), Vector2(5, 16), Vector2(6, 20), Vector2(-4, 20)
+	_ensure_polygon(_right_calf_bone, "RightCalfShape", OVERALL_COLOR, PackedVector2Array([
+		Vector2(-3, 0), Vector2(3, 0), Vector2(4, 12), Vector2(-4, 12)
 	]))
-	_ensure_polygon(_right_leg_bone, "RightBootShape", BOOT_COLOR, PackedVector2Array([
-		Vector2(-5, 16), Vector2(5, 16), Vector2(6, 20), Vector2(-4, 20)
+	_ensure_polygon(_left_calf_bone, "LeftBootShape", BOOT_COLOR, PackedVector2Array([
+		Vector2(-5, 10), Vector2(5, 10), Vector2(6, 14), Vector2(-4, 14)
+	]))
+	_ensure_polygon(_right_calf_bone, "RightBootShape", BOOT_COLOR, PackedVector2Array([
+		Vector2(-5, 10), Vector2(5, 10), Vector2(6, 14), Vector2(-4, 14)
 	]))
 
 
@@ -174,6 +202,10 @@ func _apply_pose() -> void:
 	_right_arm_bone.rotation = counter_wave * ARM_SWING
 	_left_leg_bone.rotation = counter_wave * LEG_SWING
 	_right_leg_bone.rotation = walk_wave * LEG_SWING
+	_left_forearm_bone.rotation = -0.25 + walk_wave * 0.45
+	_right_forearm_bone.rotation = -0.25 + counter_wave * 0.45
+	_left_calf_bone.rotation = 0.2 + walk_wave * 0.4
+	_right_calf_bone.rotation = 0.2 + counter_wave * 0.4
 
 	match direction_name:
 		"up":
@@ -191,6 +223,10 @@ func _apply_pose() -> void:
 		_right_arm_bone.rotation = 0.0
 		_left_leg_bone.rotation = 0.0
 		_right_leg_bone.rotation = 0.0
+		_left_forearm_bone.rotation = 0.0
+		_right_forearm_bone.rotation = 0.0
+		_left_calf_bone.rotation = 0.0
+		_right_calf_bone.rotation = 0.0
 
 
 func _make_bone(bone_name: String, bone_position: Vector2, bone_length: float) -> Bone2D:
