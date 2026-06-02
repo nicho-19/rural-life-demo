@@ -4,62 +4,46 @@ func _init() -> void:
 	var scene: PackedScene = load("res://scenes/player/Player.tscn")
 	var player: Node = scene.instantiate()
 	root.add_child(player)
-	var sprite: Node = player.get_node_or_null("AnimatedSprite2D")
 
-	if sprite == null:
-		_fail(player, "Player.tscn should contain an AnimatedSprite2D child for character animation.")
+	if player.get_node_or_null("AnimatedSprite2D") != null:
+		_fail(player, "Player should no longer use AnimatedSprite2D for the character body.")
+		return
+	if player.get_node_or_null("Sprite2D") != null:
+		_fail(player, "Player should no longer use a single Sprite2D body image.")
 		return
 
-	if not sprite is AnimatedSprite2D:
-		_fail(player, "Player animated child should be an AnimatedSprite2D node.")
+	var skeleton: Skeleton2D = player.get_node_or_null("Skeleton2D")
+	if skeleton == null:
+		_fail(player, "Player.tscn should contain a Skeleton2D rig.")
 		return
-
-	var animated_sprite: AnimatedSprite2D = sprite
 	if player.has_method("set_walk_state"):
 		player.call("set_walk_state", Vector2.DOWN, false)
-	if animated_sprite.sprite_frames == null:
-		_fail(player, "Player AnimatedSprite2D should have SpriteFrames assigned.")
-		return
 
-	for animation_name in ["walk_down", "walk_left", "walk_right", "walk_up"]:
-		if not animated_sprite.sprite_frames.has_animation(animation_name):
-			_fail(player, "Player should provide the %s animation." % animation_name)
+	var bone_paths := {
+		"TorsoBone": "TorsoBone",
+		"HeadBone": "TorsoBone/HeadBone",
+		"LeftArmBone": "TorsoBone/LeftArmBone",
+		"RightArmBone": "TorsoBone/RightArmBone",
+		"LeftLegBone": "TorsoBone/LeftLegBone",
+		"RightLegBone": "TorsoBone/RightLegBone",
+	}
+	for bone_name in bone_paths.keys():
+		var bone := skeleton.get_node_or_null(bone_paths[bone_name])
+		if bone == null:
+			_fail(player, "Player skeleton should provide the %s bone." % bone_name)
 			return
-		if animated_sprite.sprite_frames.get_frame_count(animation_name) < 3:
-			_fail(player, "Player %s animation should contain at least 3 frames." % animation_name)
+		if not bone is Bone2D:
+			_fail(player, "Player %s should be a Bone2D node." % bone_name)
 			return
 
-	var sample_texture := animated_sprite.sprite_frames.get_frame_texture("walk_down", 1)
-	if sample_texture == null:
-		_fail(player, "Player walk_down animation should expose frame textures.")
-		return
-	if not sample_texture is AtlasTexture:
-		_fail(player, "Player walk_down frames should be atlas slices from the walking sheet.")
-		return
-	var atlas_texture: AtlasTexture = sample_texture
-	if atlas_texture.atlas == null or not String(atlas_texture.atlas.resource_path).ends_with("walking_sprite_sheet.png"):
-		_fail(player, "Player animation frames should come from walking_sprite_sheet.png.")
+	var head_shape := skeleton.get_node_or_null("TorsoBone/HeadBone/HeadShape")
+	if head_shape == null or not head_shape is Polygon2D:
+		_fail(player, "Player head should be rendered from a Polygon2D shape attached to the skeleton.")
 		return
 
-	var runtime_image: Image = atlas_texture.get_image()
-	if runtime_image == null:
-		_fail(player, "Player walking frame texture should expose runtime image data.")
-		return
-	if runtime_image.get_pixel(40, 40).a > 0.05:
-		_fail(player, "Imported player walking frame background should be transparent.")
-		return
-
-	var image := Image.new()
-	var png_bytes := FileAccess.get_file_as_bytes("res://assets/characters/walking_sprite_sheet.png")
-	if png_bytes.is_empty():
-		_fail(player, "Player walking sprite sheet bytes should be readable.")
-		return
-	var load_error := image.load_png_from_buffer(png_bytes)
-	if load_error != OK:
-		_fail(player, "Player walking sprite sheet should be loadable.")
-		return
-	if image.get_pixel(0, 0).a > 0.05:
-		_fail(player, "Player walking sprite sheet corner should be transparent, not white.")
+	var torso_shape := skeleton.get_node_or_null("TorsoBone/TorsoShape")
+	if torso_shape == null or not torso_shape is Polygon2D:
+		_fail(player, "Player torso should be rendered from a Polygon2D shape attached to the skeleton.")
 		return
 
 	player.free()

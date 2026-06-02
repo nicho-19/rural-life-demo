@@ -1,21 +1,15 @@
-[gd_scene load_steps=5 format=3 uid="uid://rural_player_scene"]
+[gd_scene load_steps=3 format=3 uid="uid://rural_player_scene"]
 
 [ext_resource type="Script" path="res://scripts/player/PlayerController.gd" id="1_player_controller"]
-[ext_resource type="Texture2D" path="res://assets/characters/walking_sprite_sheet.png" id="2_walking_sprites"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(20, 28)
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_empty"]
-
 [node name="Player" type="CharacterBody2D"]
 script = ExtResource("1_player_controller")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
-texture_filter = 1
-position = Vector2(0, -34)
-scale = Vector2(0.22, 0.22)
-sprite_frames = SubResource("SpriteFrames_empty")
+[node name="Skeleton2D" type="Skeleton2D" parent="."]
+position = Vector2(0, -30)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_player")
