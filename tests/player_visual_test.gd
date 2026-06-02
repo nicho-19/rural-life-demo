@@ -16,6 +16,22 @@ func _init() -> void:
 	if sprite.texture == null:
 		_fail("Player Sprite2D should have a texture assigned.")
 		return
+	if not String(sprite.texture.resource_path).ends_with("walking_sprite_sheet.png"):
+		_fail("Player should use the walking sprite sheet for movement.")
+		return
+
+	var image := Image.new()
+	var png_bytes := FileAccess.get_file_as_bytes("res://assets/characters/walking_sprite_sheet.png")
+	if png_bytes.is_empty():
+		_fail("Player walking sprite sheet bytes should be readable.")
+		return
+	var load_error := image.load_png_from_buffer(png_bytes)
+	if load_error != OK:
+		_fail("Player walking sprite sheet should be loadable.")
+		return
+	if image.get_pixel(0, 0).a > 0.05:
+		_fail("Player walking sprite sheet corner should be transparent, not white.")
+		return
 
 	var source := FileAccess.get_file_as_string("res://scripts/player/PlayerController.gd")
 	if source.contains("func _draw()"):
